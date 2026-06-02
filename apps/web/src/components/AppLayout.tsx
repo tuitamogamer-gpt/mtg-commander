@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
 import { useTheme } from "@/store/theme";
 import { Button } from "@/components/ui/Button";
+import { Onboarding } from "@/components/Onboarding";
 
 const navItems = [
   { to: "/lobby", label: "Lobby" },
@@ -105,6 +106,7 @@ export function AppLayout() {
           <Outlet />
         </motion.div>
       </main>
+      {user && <Onboarding />}
     </div>
   );
 }

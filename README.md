@@ -8,6 +8,13 @@ Rules are **honor-system** (like Cockatrice / Untap.in): the server is
 authoritative over state and hidden information, but it does **not** enforce MTG
 rules — players move their own cards freely. No AI opponent, no rules engine.
 
+**Docs:** [Architecture](ARCHITECTURE.md) · [API reference](API.md) ·
+[Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md). New players get a
+short in-app walkthrough on first login.
+
+> _Screenshots: not yet captured (the headless build environment can't grab them
+> reliably). Run `pnpm dev` and open http://localhost:5173 to see the UI._
+
 ---
 
 ## Tech stack
