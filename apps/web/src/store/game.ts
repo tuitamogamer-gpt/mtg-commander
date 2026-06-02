@@ -28,7 +28,16 @@ export const useGame = create<GameStore>((set, get) => ({
     const socket = getGameSocket();
     if (!wired) {
       wired = true;
-      socket.on("connect", () => set({ connected: true }));
+      socket.on("connect", () => {
+        set({ connected: true });
+        // On a reconnect, silently re-join to restore the live state.
+        const { joinedId } = get();
+        if (joinedId) {
+          emitAck<GameStateView>(socket, "game:join", { gameId: joinedId }).then((res) => {
+            if (res.ok) set({ state: res.data, error: null });
+          });
+        }
+      });
       socket.on("disconnect", () => set({ connected: false }));
       socket.on("game:state", (state) => set({ state }));
       socket.on("game:chat", (msg) => set((s) => ({ chat: [...s.chat, msg] })));

@@ -129,6 +129,17 @@ export function applyAction(
       break;
     }
 
+    case "set_skipped": {
+      const target = findPlayer(state, action.playerId);
+      if (target) {
+        target.skipped = action.skipped;
+        logs.push(
+          `${target.username} is ${action.skipped ? "now skipped (turns pass over them)" : "back in the turn order"}.`
+        );
+      }
+      break;
+    }
+
     case "annotate": {
       const card = findCardAnywhere(actor, action.instanceId);
       if (card) card.annotation = action.annotation || undefined;
@@ -247,7 +258,13 @@ export function applyAction(
     }
 
     case "next_turn": {
-      state.activePlayerIndex = (state.activePlayerIndex + 1) % state.players.length;
+      // Advance to the next non-skipped seat (guard against everyone skipped).
+      let next = state.activePlayerIndex;
+      for (let i = 0; i < state.players.length; i++) {
+        next = (next + 1) % state.players.length;
+        if (!state.players[next].skipped) break;
+      }
+      state.activePlayerIndex = next;
       state.turn += 1;
       state.phase = "untap";
       const active = state.players[state.activePlayerIndex];

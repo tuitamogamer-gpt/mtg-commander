@@ -68,6 +68,8 @@ function buildPlayer(seat: SeatInput, startingLife: number): PlayerState {
     counters: [],
     mulligans: 0,
     keptHand: false,
+    disconnectedAt: null,
+    skipped: false,
     zones: { library, hand, battlefield: [], graveyard: [], exile: [], command },
   };
 }
@@ -118,6 +120,8 @@ export function redactState(state: GameState, viewerId: string): GameStateView {
       counters: p.counters,
       mulligans: p.mulligans,
       keptHand: p.keptHand,
+      disconnectedAt: p.disconnectedAt,
+      skipped: p.skipped,
       zones: {
         library: { count: p.zones.library.length },
         hand: isViewer ? p.zones.hand : { count: p.zones.hand.length },

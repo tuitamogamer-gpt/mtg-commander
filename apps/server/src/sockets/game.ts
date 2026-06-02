@@ -26,6 +26,9 @@ export function registerGameNamespace(io: Server): void {
     }
   };
 
+  // When the grace timer fires and a player is auto-skipped, refresh the table.
+  gameManager.onAutoSkip = (gameId) => void broadcastState(gameId);
+
   ns.on("connection", (socket: GameNsSocket) => {
     const user = socket.data.user;
     let joinedGameId: string | null = null;

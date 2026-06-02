@@ -17,6 +17,7 @@ import { SelfBoard } from "@/components/game/SelfBoard";
 import { LifeTracker } from "@/components/game/LifeTracker";
 import { ManaPool } from "@/components/game/ManaPool";
 import { MulliganOverlay } from "@/components/game/MulliganOverlay";
+import { DisconnectBanner } from "@/components/game/DisconnectBanner";
 
 function resolveDrop(overId: string): { to: Zone; row?: BattlefieldRow } | null {
   if (overId.startsWith("bf:")) {
@@ -78,10 +79,17 @@ export function GamePage() {
 
   const me = state.players.find((p) => p.id === state.viewerId);
   const opponents = state.players.filter((p) => p.id !== state.viewerId);
+  const isHost = state.players[0]?.id === state.viewerId;
 
   return (
     <div className="h-screen flex flex-col bg-bg">
       {me && !me.keptHand && <MulliganOverlay me={me} players={state.players} act={act} />}
+      <DisconnectBanner players={state.players} isHost={isHost} act={act} />
+      {!connected && (
+        <div className="bg-amber-500/20 border-b border-amber-500 px-4 py-1 text-center text-sm text-amber-200">
+          Connection lost — reconnecting…
+        </div>
+      )}
       {/* Header */}
       <header className="border-b border-border bg-surface px-4 py-2 flex items-center gap-4">
         <PhaseBar state={state} act={act} />

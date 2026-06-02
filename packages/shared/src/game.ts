@@ -115,6 +115,11 @@ export interface PlayerState {
   mulligans: number;
   /** True once the player has kept their opening hand (mulligan phase done). */
   keptHand: boolean;
+  /** Epoch ms when this player dropped, or null if connected. Drives the
+   * reconnect countdown shown to the table. */
+  disconnectedAt: number | null;
+  /** When true, turn advancement skips this seat (e.g. abandoned game). */
+  skipped: boolean;
   zones: PlayerZones;
 }
 
@@ -195,6 +200,7 @@ export type GameAction =
   | { type: "empty_mana" }
   | { type: "set_monarch"; playerId: string }
   | { type: "set_initiative"; playerId: string }
+  | { type: "set_skipped"; playerId: string; skipped: boolean }
   | { type: "annotate"; instanceId: string; annotation: string }
   | { type: "draw"; count: number }
   | { type: "mill"; count: number }

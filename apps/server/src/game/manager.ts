@@ -74,13 +74,52 @@ class GameManager {
     return logs;
   }
 
+  // After this long without reconnecting, a dropped player is auto-skipped so the
+  // table can keep playing.
+  static readonly RECONNECT_GRACE_MS = 5 * 60 * 1000;
+  private skipTimers = new Map<string, NodeJS.Timeout>();
+
   setConnected(gameId: string, playerId: string, connected: boolean): GameState | undefined {
     const state = this.games.get(gameId);
     if (!state) return undefined;
     const player = state.players.find((p) => p.id === playerId);
-    if (player) player.connected = connected;
+    if (!player) return state;
+
+    player.connected = connected;
+    const timerKey = `${gameId}:${playerId}`;
+
+    if (connected) {
+      player.disconnectedAt = null;
+      // Returning cancels any pending auto-skip but does NOT auto-unskip — the
+      // table may have chosen to skip them deliberately.
+      const t = this.skipTimers.get(timerKey);
+      if (t) {
+        clearTimeout(t);
+        this.skipTimers.delete(timerKey);
+      }
+    } else if (player.disconnectedAt === null) {
+      player.disconnectedAt = Date.now();
+      const timer = setTimeout(() => {
+        this.skipTimers.delete(timerKey);
+        const s = this.games.get(gameId);
+        const p = s?.players.find((x) => x.id === playerId);
+        if (p && !p.connected && !p.skipped) {
+          p.skipped = true;
+          s!.log.push({
+            ts: Date.now(),
+            playerId: "system",
+            message: `${p.username} did not reconnect in time and is now skipped.`,
+          });
+          this.onAutoSkip?.(gameId);
+        }
+      }, GameManager.RECONNECT_GRACE_MS);
+      this.skipTimers.set(timerKey, timer);
+    }
     return state;
   }
+
+  /** Hook the game namespace sets so it can rebroadcast after an auto-skip. */
+  onAutoSkip?: (gameId: string) => void;
 
   // Debounced persistence so a flurry of actions writes at most ~once/sec.
   private snapshotTimers = new Map<string, NodeJS.Timeout>();
