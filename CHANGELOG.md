@@ -3,6 +3,40 @@
 All notable changes to this project. Built in numbered phases (Faze); each was a
 self-contained commit.
 
+## v0.2.0 — "polished product" pass
+
+Turns the v0.1.0 MVP into something a playgroup would actually enjoy using.
+
+- **Faza 21 — Tests + CI**: Vitest backend suite via Fastify inject (auth, decks,
+  precons, cards, moxfield, game engine, lobby + game sockets) at ~82% server
+  coverage; Vitest/RTL frontend tests; Playwright happy-path e2e; GitHub Actions
+  CI (lint + test + build, plus an e2e job).
+- **Faza 22 — UI polish**: toast notifications, loading skeletons, empty states,
+  light/dark theme toggle (no-flash), lazy/fade-in card art, Framer Motion modal
+  + route transitions.
+- **Faza 23 — Game UX**: undo (server snapshot ring + Ctrl+Z), right-click card
+  context menu, token creator, custom player/card counters, keyboard shortcuts,
+  phase auto-pass, sound cues.
+- **Faza 24 — Deck builder**: import-from-text (name resolution), export to
+  clipboard, mana-curve chart, inline ban-list flags.
+- **Faza 25 — Social**: match history, persisted (replayed) in-game chat,
+  end-game winner recording, lobby filters.
+- **Faza 26 — Performance**: route code-splitting + vendor chunking (no more
+  oversized bundle), rate limiting, response-time logging, socket heartbeat
+  tuning.
+- **Faza 27 — Observability**: DB-aware health check, /api/metrics, central error
+  handler + Sentry stub, frontend ErrorBoundary.
+- **Faza 28 — Accessibility**: high-contrast mode, reduced-motion, ARIA labels,
+  dialog roles on modals.
+- **Faza 29 — Docs & onboarding**: ARCHITECTURE/API/CONTRIBUTING docs + in-app
+  first-login walkthrough.
+- **Faza 30 — Release**: full suite green (61 tests), version bump, this entry,
+  `v0.2.0` tag.
+
+Deferred to a later iteration: friends/presence system, spectator waitlist,
+service-worker offline cache, EDHREC suggestions, OpenAPI/swagger, automated axe
+audit, and (by design) any MTG rules enforcement.
+
 ## v0.1.0
 
 ### Foundation (Faze 0–10)

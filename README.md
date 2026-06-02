@@ -129,6 +129,25 @@ mtg-commander/
 
 ---
 
+## What's new in v0.2.0
+
+The "polished product" pass on top of the v0.1.0 MVP:
+
+- **Quality**: a real test suite (61 tests, ~82% server coverage) + GitHub Actions CI.
+- **Feel**: toasts, loading skeletons, empty states, light/dark + high-contrast
+  themes, animations, lazy card art.
+- **Game UX**: undo (Ctrl+Z), right-click card menu, token creator, custom
+  counters, keyboard shortcuts, phase auto-pass, sound cues.
+- **Decks**: paste-to-import, export to clipboard, mana-curve chart, ban-list flags.
+- **Social**: match history, persisted chat, end-game results, lobby filters.
+- **Ops**: code-split bundle, rate limiting, health/metrics endpoints, error
+  boundary, accessibility pass, and full docs ([Architecture](ARCHITECTURE.md),
+  [API](API.md), [Contributing](CONTRIBUTING.md)).
+
+See the [Changelog](CHANGELOG.md) for the full per-phase breakdown.
+
+---
+
 ## Features
 
 **Accounts & decks**
