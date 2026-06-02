@@ -188,11 +188,27 @@ export function DeckEditorPage() {
     if (commanders.length === 0) errors.push("No commander designated.");
     if (total !== 100) errors.push(`Deck has ${total} cards; needs exactly 100.`);
 
+    // Commander color identity (from loaded card data).
+    const idSet = new Set<string>();
+    for (const c of commanders) {
+      for (const col of cardData[c.scryfallId]?.colorIdentity ?? []) idSet.add(col);
+    }
+
+    const offIdentity = new Set<string>(); // scryfallIds outside identity (for row highlight)
     for (const c of cards) {
-      if (!c.isCommander && c.quantity > 1 && !BASICS.has(c.name)) {
+      const data = cardData[c.scryfallId];
+      const anyNumber = /a deck can have any number of cards named/i.test(data?.oracleText ?? "");
+      if (!c.isCommander && c.quantity > 1 && !BASICS.has(c.name) && !anyNumber) {
         warnings.push(`${c.name} ×${c.quantity} (singleton rule).`);
       }
       if (banned.has(c.name)) errors.push(`${c.name} is banned in Commander.`);
+      if (!c.isCommander && commanders.length > 0 && data) {
+        const outside = (data.colorIdentity ?? []).filter((col) => !idSet.has(col));
+        if (outside.length > 0) {
+          offIdentity.add(c.scryfallId);
+          errors.push(`${c.name} is outside the commander's color identity (${outside.join("")}).`);
+        }
+      }
     }
     for (const cmd of commanders) {
       const data = cardData[cmd.scryfallId];
@@ -204,13 +220,8 @@ export function DeckEditorPage() {
       }
     }
 
-    // color identity from loaded card data
-    const idSet = new Set<string>();
-    const src = commanders.length ? commanders : cards;
-    for (const c of src) for (const col of cardData[c.scryfallId]?.colorIdentity ?? []) idSet.add(col);
     const colorIdentity = WUBRG.filter((c) => idSet.has(c));
-
-    return { total, errors, warnings, colorIdentity };
+    return { total, errors, warnings, colorIdentity, offIdentity };
   }, [cards, banned, cardData]);
 
   if (!deck) return <p className="text-muted py-10">Loading deck…</p>;
@@ -370,13 +381,17 @@ export function DeckEditorPage() {
                     key={c.scryfallId}
                     className={cn(
                       "flex items-center justify-between gap-2 rounded px-2 py-1 text-sm",
-                      c.isCommander ? "bg-accent/10" : "hover:bg-surface-2"
+                      c.isCommander ? "bg-accent/10" : "hover:bg-surface-2",
+                      validation.offIdentity.has(c.scryfallId) && "ring-1 ring-danger/60"
                     )}
                   >
                     <span className="truncate text-white">
                       {c.isCommander && <span className="text-accent">⌘ </span>}
                       {c.name}
                       {banned.has(c.name) && <span className="ml-1 text-danger text-xs">banned</span>}
+                      {validation.offIdentity.has(c.scryfallId) && (
+                        <span className="ml-1 text-danger text-xs">off-color</span>
+                      )}
                     </span>
                     <div className="flex items-center gap-1 shrink-0">
                       <button className="text-muted hover:text-white px-1" onClick={() => setQty(c.scryfallId, -1)}>

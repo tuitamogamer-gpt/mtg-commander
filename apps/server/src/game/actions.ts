@@ -6,7 +6,13 @@ import type {
   PlayerState,
   Zone,
 } from "@mtgc/shared";
-import { PHASE_ORDER, PHASE_LABELS } from "@mtgc/shared";
+import {
+  PHASE_ORDER,
+  PHASE_LABELS,
+  COMMANDER_DAMAGE_LETHAL,
+  COMMANDER_TAX_PER_CAST,
+  POISON_LETHAL,
+} from "@mtgc/shared";
 import { shuffle } from "./state.js";
 
 /**
@@ -77,19 +83,38 @@ export function applyAction(
         const prev = target.life;
         target.life = action.life;
         logs.push(`${target.username} life ${prev} → ${action.life}.`);
+        if (prev > 0 && action.life <= 0) {
+          logs.push(`${target.username} is at 0 life — eliminated.`);
+        }
       }
       break;
     }
 
     case "set_commander_damage": {
       const target = findPlayer(state, action.playerId);
-      if (target) target.commanderDamage[action.fromPlayerId] = Math.max(0, action.amount);
+      if (target) {
+        const prev = target.commanderDamage[action.fromPlayerId] ?? 0;
+        const amount = Math.max(0, action.amount);
+        target.commanderDamage[action.fromPlayerId] = amount;
+        const from = findPlayer(state, action.fromPlayerId)?.username ?? "a commander";
+        if (prev < COMMANDER_DAMAGE_LETHAL && amount >= COMMANDER_DAMAGE_LETHAL) {
+          logs.push(
+            `${target.username} has taken ${amount} commander damage from ${from} — eliminated (21+).`
+          );
+        }
+      }
       break;
     }
 
     case "set_poison": {
       const target = findPlayer(state, action.playerId);
-      if (target) target.poison = Math.max(0, action.amount);
+      if (target) {
+        const prev = target.poison;
+        target.poison = Math.max(0, action.amount);
+        if (prev < POISON_LETHAL && target.poison >= POISON_LETHAL) {
+          logs.push(`${target.username} has ${target.poison} poison — eliminated.`);
+        }
+      }
       break;
     }
 
@@ -257,14 +282,26 @@ export function applyAction(
       // Cast/activate: take the card from the actor's zones onto the shared stack.
       const found = removeCardFromZones(actor, action.instanceId);
       if (!found) break;
-      const { card } = found;
+      const { card, from } = found;
       card.controllerId = actor.id;
       card.stackNote = action.note;
       card.tapped = false;
       card.row = undefined;
+      // Commander tax: casting a commander from the command zone costs +2 generic
+      // per previous cast. We track casts and surface the tax in the log.
+      if (card.isCommander && from === "command") {
+        const prior = card.timesCast ?? 0;
+        const tax = prior * COMMANDER_TAX_PER_CAST;
+        card.timesCast = prior + 1;
+        logs.push(
+          `${actor.username} cast their commander ${card.name}` +
+            (tax > 0 ? ` (commander tax +${tax} generic, cast #${prior + 1}).` : ".")
+        );
+      } else {
+        logs.push(`${actor.username} put ${cardLabel(card)} on the stack.`);
+      }
       state.stack.push(card);
       state.priorityPlayerId = actor.id; // caster gets priority first
-      logs.push(`${actor.username} put ${cardLabel(card)} on the stack.`);
       break;
     }
 

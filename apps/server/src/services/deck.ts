@@ -87,6 +87,9 @@ export async function computeColorIdentity(cards: DeckCardEntry[]): Promise<stri
  * Advisory Commander-legality check. The game itself is honor-system, so this is
  * never enforced — it surfaces warnings/errors in the deck UI.
  */
+/** Cards that may appear in any quantity (singleton exemption beyond basics). */
+const ANY_NUMBER_RE = /a deck can have any number of cards named/i;
+
 export async function validateCommanderDeck(cards: DeckCardEntry[]): Promise<DeckValidation> {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -103,24 +106,44 @@ export async function validateCommanderDeck(cards: DeckCardEntry[]): Promise<Dec
     errors.push(`Deck has ${count} cards; a Commander deck must have exactly 100.`);
   }
 
-  // Singleton rule (basic lands exempt).
+  // Fetch all card data once for singleton-exception, color-identity and
+  // commander-legality checks.
+  const { cards: resolved } = await getCards(cards.map((c) => c.scryfallId));
+  const byId = new Map(resolved.map((c) => [c.scryfallId, c]));
+
+  // Singleton rule — basic lands and "any number" cards are exempt.
   for (const c of cards) {
-    if (!c.isCommander && c.quantity > 1 && !BASIC_LANDS.has(c.name)) {
-      warnings.push(`${c.name} appears ${c.quantity} times (singleton rule).`);
+    if (c.isCommander || c.quantity <= 1) continue;
+    if (BASIC_LANDS.has(c.name)) continue;
+    if (ANY_NUMBER_RE.test(byId.get(c.scryfallId)?.oracleText ?? "")) continue;
+    warnings.push(`${c.name} appears ${c.quantity} times (singleton rule).`);
+  }
+
+  // Commander color identity — every card must be within it.
+  const commanderIdentity = new Set<string>();
+  for (const c of commanders) {
+    for (const col of byId.get(c.scryfallId)?.colorIdentity ?? []) commanderIdentity.add(col);
+  }
+  if (commanders.length > 0) {
+    for (const c of cards) {
+      if (c.isCommander) continue;
+      const id = byId.get(c.scryfallId)?.colorIdentity ?? [];
+      const outside = id.filter((col) => !commanderIdentity.has(col));
+      if (outside.length > 0) {
+        errors.push(`${c.name} is outside the commander's color identity (${outside.join("")}).`);
+      }
     }
   }
 
-  // Commander type check via card data.
-  if (commanders.length > 0) {
-    const { cards: cmdCards } = await getCards(commanders.map((c) => c.scryfallId));
-    for (const cmd of cmdCards) {
-      const type = cmd.typeLine ?? "";
-      const text = cmd.oracleText ?? "";
-      const isLegendaryCreature = /Legendary/.test(type) && /Creature/.test(type);
-      const canBeCommander = /can be your commander/i.test(text);
-      if (!isLegendaryCreature && !canBeCommander) {
-        warnings.push(`${cmd.name} may not be a legal commander.`);
-      }
+  // Commander legality (must be a legendary creature or "can be your commander").
+  for (const c of commanders) {
+    const cmd = byId.get(c.scryfallId);
+    if (!cmd) continue;
+    const type = cmd.typeLine ?? "";
+    const isLegendaryCreature = /Legendary/.test(type) && /Creature/.test(type);
+    const canBeCommander = /can be your commander/i.test(cmd.oracleText ?? "");
+    if (!isLegendaryCreature && !canBeCommander) {
+      warnings.push(`${cmd.name} may not be a legal commander.`);
     }
   }
 

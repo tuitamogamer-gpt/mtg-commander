@@ -90,6 +90,11 @@ export interface GameCard {
   controllerId?: string;
   /** Optional description shown for a spell/ability on the stack. */
   stackNote?: string;
+  /** True for designated commanders — drives command-zone tax + return rules. */
+  isCommander?: boolean;
+  /** How many times this commander has been cast from the command zone.
+   * Commander tax = max(0, timesCast) * 2 generic on the next cast. */
+  timesCast?: number;
 }
 
 export interface PlayerZones {
@@ -163,6 +168,25 @@ export interface GameLogEntry {
   ts: number;
   playerId: string;
   message: string;
+}
+
+/** Lethal commander damage from a single source. */
+export const COMMANDER_DAMAGE_LETHAL = 21;
+/** Lethal poison counters. */
+export const POISON_LETHAL = 10;
+/** Commander tax: +2 generic per previous cast from the command zone. */
+export const COMMANDER_TAX_PER_CAST = 2;
+
+/** Whether a player meets a loss condition (life ≤ 0, 21+ commander damage from
+ * one source, or 10+ poison). Advisory in the honor-system model. */
+export function isEliminated(p: {
+  life: number;
+  poison: number;
+  commanderDamage: Record<string, number>;
+}): boolean {
+  if (p.life <= 0) return true;
+  if (p.poison >= POISON_LETHAL) return true;
+  return Object.values(p.commanderDamage).some((d) => d >= COMMANDER_DAMAGE_LETHAL);
 }
 
 /**

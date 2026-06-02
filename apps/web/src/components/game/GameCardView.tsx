@@ -11,9 +11,11 @@ export type CardActionKind =
   | "plus"
   | "minus"
   | "counter"
+  | "cast"
   | "gy"
   | "exile"
   | "hand"
+  | "command"
   | "libTop"
   | "libBottom"
   | "flip"
@@ -31,6 +33,7 @@ interface Props {
 }
 
 const MENU: { kind: CardActionKind; label: string }[] = [
+  { kind: "cast", label: "Cast (to stack)" },
   { kind: "tap", label: "Tap / untap" },
   { kind: "plus", label: "Add +1/+1" },
   { kind: "minus", label: "Add −1/−1" },
@@ -41,6 +44,7 @@ const MENU: { kind: CardActionKind; label: string }[] = [
   { kind: "hand", label: "→ Hand" },
   { kind: "gy", label: "→ Graveyard" },
   { kind: "exile", label: "→ Exile" },
+  { kind: "command", label: "→ Command zone" },
   { kind: "libTop", label: "→ Library (top)" },
   { kind: "libBottom", label: "→ Library (bottom)" },
 ];
@@ -122,6 +126,13 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
               {c.kind === "+1/+1" ? `+${c.count}` : c.kind === "-1/-1" ? `-${c.count}` : `${c.kind} ${c.count}`}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Commander marker + tax (tax = previous casts × 2 generic). */}
+      {card.isCommander && (
+        <div className="absolute -top-1 -left-1 rounded bg-accent px-1 text-[9px] font-bold text-black" title="Commander">
+          ⌘{card.timesCast ? ` +${card.timesCast * 2}` : ""}
         </div>
       )}
 

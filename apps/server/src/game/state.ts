@@ -46,8 +46,13 @@ function buildPlayer(seat: SeatInput, startingLife: number): PlayerState {
   for (const entry of seat.cards) {
     for (let i = 0; i < entry.quantity; i++) {
       const card = makeCard(entry, seat.userId);
-      if (entry.isCommander) command.push(card);
-      else library.push(card);
+      if (entry.isCommander) {
+        card.isCommander = true;
+        card.timesCast = 0;
+        command.push(card);
+      } else {
+        library.push(card);
+      }
     }
   }
   shuffle(library);

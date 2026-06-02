@@ -45,6 +45,8 @@ function cardActionHandler(act: Props["act"], card: GameCard) {
         }
         return;
       }
+      case "cast":
+        return act({ type: "add_to_stack", instanceId: card.instanceId });
       case "flip":
         return act({ type: "flip", instanceId: card.instanceId, faceDown: !card.faceDown });
       case "reveal":
@@ -57,6 +59,8 @@ function cardActionHandler(act: Props["act"], card: GameCard) {
         return move("exile");
       case "hand":
         return move("hand");
+      case "command":
+        return move("command");
       case "libTop":
         return move("library", undefined, 0);
       case "libBottom":

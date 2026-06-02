@@ -9,6 +9,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import type { BattlefieldRow, GameAction, Zone } from "@mtgc/shared";
+import { isEliminated } from "@mtgc/shared";
 import { useGame } from "@/store/game";
 import { useSettings } from "@/store/settings";
 import { playCue } from "@/lib/sound";
@@ -178,6 +179,12 @@ export function GamePage() {
               </Button>
             </div>
           </div>
+        </div>
+      )}
+      {state.players.filter((p) => isEliminated(p)).length > 0 && (
+        <div className="bg-danger/25 border-b border-danger px-4 py-1.5 text-center text-sm text-white">
+          ☠ {state.players.filter((p) => isEliminated(p)).map((p) => p.username).join(", ")} at a loss
+          condition (0 life, 21+ commander damage, or 10 poison). Host can end the game to record the result.
         </div>
       )}
       <DisconnectBanner players={state.players} isHost={isHost} act={act} />
