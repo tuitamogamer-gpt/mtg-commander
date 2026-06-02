@@ -37,10 +37,11 @@ function resolveDrop(overId: string): { to: Zone; row?: BattlefieldRow } | null 
 export function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
-  const { state, chat, error, connected, join, act: rawAct, undo, sendChat, leave } = useGame();
+  const { state, chat, error, connected, join, act: rawAct, undo, endGame, sendChat, leave } = useGame();
   const { sound, autoPass, toggleSound, toggleAutoPass } = useSettings();
   const [chatText, setChatText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [endOpen, setEndOpen] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // Wrap dispatch to play a short sound cue for the actor (when enabled).
@@ -154,6 +155,31 @@ export function GamePage() {
   return (
     <div className="h-screen flex flex-col bg-bg">
       {me && !me.keptHand && <MulliganOverlay me={me} players={state.players} act={act} />}
+      {endOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setEndOpen(false)}>
+          <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white">End game — who won?</h3>
+            <div className="space-y-1">
+              {state.players.map((p) => (
+                <Button
+                  key={p.id}
+                  variant="secondary"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    endGame(p.id);
+                    setEndOpen(false);
+                  }}
+                >
+                  {p.username}
+                </Button>
+              ))}
+              <Button variant="ghost" className="w-full" onClick={() => { endGame(null); setEndOpen(false); }}>
+                No winner / draw
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <DisconnectBanner players={state.players} isHost={isHost} act={act} />
       {!connected && (
         <div className="bg-amber-500/20 border-b border-amber-500 px-4 py-1 text-center text-sm text-amber-200">
@@ -171,6 +197,11 @@ export function GamePage() {
         {!isSpectator && (
           <Button size="sm" variant="secondary" onClick={undo} title="Undo last action (Ctrl+Z)">
             ↺ Undo
+          </Button>
+        )}
+        {!isSpectator && (
+          <Button size="sm" variant="danger" onClick={() => setEndOpen(true)}>
+            End game
           </Button>
         )}
         <Button

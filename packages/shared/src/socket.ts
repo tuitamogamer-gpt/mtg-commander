@@ -54,6 +54,11 @@ export interface GameClientToServer {
   ) => void;
   /** Undo the most recent applied action, restoring the prior snapshot. */
   "game:undo": (payload: { gameId: string }, ack?: (res: SocketResult<null>) => void) => void;
+  /** End the game and record a match result (winnerId optional = draw/no winner). */
+  "game:end": (
+    payload: { gameId: string; winnerId: string | null },
+    ack?: (res: SocketResult<null>) => void
+  ) => void;
 }
 
 export interface GameServerToClient {

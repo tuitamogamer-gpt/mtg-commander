@@ -9,6 +9,7 @@ import { LobbyRoomPage } from "./pages/LobbyRoomPage";
 import { DecksPage } from "./pages/DecksPage";
 import { DeckEditorPage } from "./pages/DeckEditorPage";
 import { PreconsPage } from "./pages/PreconsPage";
+import { MatchesPage } from "./pages/MatchesPage";
 import { GamePage } from "./pages/GamePage";
 
 export const router = createBrowserRouter([
@@ -55,6 +56,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <PreconsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/matches",
+        element: (
+          <RequireAuth>
+            <MatchesPage />
           </RequireAuth>
         ),
       },

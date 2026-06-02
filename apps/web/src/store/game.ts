@@ -12,6 +12,7 @@ interface GameStore {
   join: (gameId: string) => Promise<void>;
   act: (action: GameAction) => void;
   undo: () => void;
+  endGame: (winnerId: string | null) => void;
   peek: (count: number) => Promise<GameCard[]>;
   sendChat: (text: string) => void;
   leave: () => void;
@@ -65,6 +66,11 @@ export const useGame = create<GameStore>((set, get) => ({
   undo: () => {
     const { joinedId } = get();
     if (joinedId) getGameSocket().emit("game:undo", { gameId: joinedId });
+  },
+
+  endGame: (winnerId) => {
+    const { joinedId } = get();
+    if (joinedId) getGameSocket().emit("game:end", { gameId: joinedId, winnerId });
   },
 
   peek: async (count) => {

@@ -87,3 +87,30 @@ model Game {
 
   @@index([roomId])
 }
+
+/// A finished game, for per-player match history.
+model Match {
+  id           String   @id @default(cuid())
+  gameId       String
+  finishedAt   DateTime @default(now())
+  playerIds    String // JSON: string[] of participating user ids (for lookup)
+  participants String // JSON: { id, username }[]
+  winnerId     String?
+  winnerName   String?
+  turns        Int      @default(0)
+
+  @@index([gameId])
+}
+
+/// Persisted in-game chat so it survives a refresh / reconnect.
+model GameChat {
+  id          String   @id @default(cuid())
+  gameId      String
+  userId      String
+  username    String
+  text        String
+  isSpectator Boolean  @default(false)
+  ts          DateTime @default(now())
+
+  @@index([gameId])
+}

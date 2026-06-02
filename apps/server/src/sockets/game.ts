@@ -8,6 +8,7 @@ import type {
 } from "@mtgc/shared";
 import { socketAuth } from "./auth.js";
 import { gameManager } from "../game/manager.js";
+import { prisma } from "../db.js";
 
 type GameNsSocket = Socket<GameClientToServer, GameServerToClient>;
 
@@ -52,6 +53,7 @@ export function registerGameNamespace(io: Server): void {
         void socket.join(gameChannel(gameId));
         const view = gameManager.view(gameId, user.id)!; // viewerId matches no seat → hands hidden
         ack?.({ ok: true, data: view });
+        await replayChat(gameId);
         return;
       }
 
@@ -68,7 +70,29 @@ export function registerGameNamespace(io: Server): void {
       });
       // Let everyone refresh connection flags.
       void broadcastState(gameId);
+      await replayChat(gameId);
     });
+
+    /** Send the joining socket the recent persisted chat so it survives refresh. */
+    async function replayChat(gameId: string) {
+      const rows = await prisma.gameChat.findMany({
+        where: { gameId },
+        orderBy: { ts: "asc" },
+        take: 100,
+      });
+      for (const r of rows) {
+        socket.emit("game:chat", {
+          id: r.id,
+          scope: "game",
+          roomId: gameId,
+          userId: r.userId,
+          username: r.username,
+          text: r.text,
+          ts: r.ts.getTime(),
+          isSpectator: r.isSpectator,
+        });
+      }
+    }
 
     socket.on("game:request_state", (_payload, ack) => {
       if (!joinedGameId) {
@@ -144,6 +168,50 @@ export function registerGameNamespace(io: Server): void {
         isSpectator,
       };
       ns.to(gameChannel(gameId)).emit("game:chat", msg);
+      // Persist so the chat survives a refresh / reconnect.
+      void prisma.gameChat
+        .create({
+          data: {
+            gameId,
+            userId: user.id,
+            username: user.username,
+            text: msg.text,
+            isSpectator,
+          },
+        })
+        .catch(() => {});
+    });
+
+    socket.on("game:end", async ({ gameId, winnerId }, ack) => {
+      if (isSpectator) {
+        ack?.({ ok: false, error: "Spectators cannot end the game" });
+        return;
+      }
+      const state = await gameManager.load(gameId);
+      if (!state) {
+        ack?.({ ok: false, error: "Game not found" });
+        return;
+      }
+      const winner = state.players.find((p) => p.id === winnerId) ?? null;
+      await prisma.match.create({
+        data: {
+          gameId,
+          playerIds: JSON.stringify(state.players.map((p) => p.id)),
+          participants: JSON.stringify(state.players.map((p) => ({ id: p.id, username: p.username }))),
+          winnerId: winner?.id ?? null,
+          winnerName: winner?.username ?? null,
+          turns: state.turn,
+        },
+      });
+      state.status = "finished";
+      await gameManager.persist(state);
+      ns.to(gameChannel(gameId)).emit("game:log", {
+        ts: Date.now(),
+        playerId: user.id,
+        message: winner ? `Game over — ${winner.username} wins!` : "Game ended.",
+      });
+      await broadcastState(gameId);
+      ack?.({ ok: true, data: null });
     });
 
     socket.on("disconnect", () => {

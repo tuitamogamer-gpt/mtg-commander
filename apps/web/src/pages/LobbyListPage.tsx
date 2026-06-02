@@ -15,6 +15,15 @@ export function LobbyListPage() {
   const [allowSpectators, setAllowSpectators] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [filter, setFilter] = useState("");
+  const [waitingOnly, setWaitingOnly] = useState(false);
+
+  const visibleRooms = rooms.filter((r) => {
+    if (waitingOnly && r.status !== "waiting") return false;
+    const q = filter.trim().toLowerCase();
+    if (!q) return true;
+    return r.name.toLowerCase().includes(q) || r.hostUsername.toLowerCase().includes(q);
+  });
 
   useEffect(() => {
     init();
@@ -109,17 +118,34 @@ export function LobbyListPage() {
       </Card>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <h2 className="text-lg font-semibold text-white">Open tables</h2>
-          <Button size="sm" variant="ghost" onClick={refreshRooms}>
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter tables…"
+              className="h-8 w-40"
+            />
+            <label className="flex items-center gap-1 text-xs text-muted">
+              <input
+                type="checkbox"
+                checked={waitingOnly}
+                onChange={(e) => setWaitingOnly(e.target.checked)}
+                className="accent-[var(--color-accent)]"
+              />
+              Waiting only
+            </label>
+            <Button size="sm" variant="ghost" onClick={refreshRooms}>
+              Refresh
+            </Button>
+          </div>
         </div>
-        {rooms.length === 0 ? (
-          <p className="text-muted text-sm">No open tables. Create one above.</p>
+        {visibleRooms.length === 0 ? (
+          <p className="text-muted text-sm">No tables match. Create one above.</p>
         ) : (
           <div className="grid gap-2">
-            {rooms.map((room) => (
+            {visibleRooms.map((room) => (
               <Card key={room.id}>
                 <CardContent className="flex items-center justify-between">
                   <div>

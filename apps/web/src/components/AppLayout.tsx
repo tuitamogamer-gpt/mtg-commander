@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 const navItems = [
   { to: "/lobby", label: "Lobby" },
   { to: "/decks", label: "Decks" },
+  { to: "/matches", label: "Matches" },
 ];
 
 export function AppLayout() {
