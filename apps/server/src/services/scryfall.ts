@@ -204,6 +204,44 @@ export async function getCards(ids: string[]): Promise<{ cards: Card[]; notFound
   return { cards, notFound };
 }
 
+/**
+ * Search Scryfall with its query syntax (e.g. `t:creature id<=wu cmc<=3`).
+ * Returns the first page (capped) mapped to our Card model, caching each card.
+ */
+export async function searchCards(query: string, limit = 60): Promise<Card[]> {
+  const url = `${SCRYFALL_BASE}/cards/search?q=${encodeURIComponent(query)}&unique=cards&order=name`;
+  const res = await fetch(url, { headers: HEADERS });
+  if (res.status === 404) return []; // Scryfall returns 404 for "no cards found"
+  if (!res.ok) throw new Error(`Scryfall search error ${res.status}`);
+  const data = (await res.json()) as { data: ScryfallCard[] };
+  const page = data.data.slice(0, limit);
+  const cards: Card[] = [];
+  for (const sf of page) cards.push(toCardModel(await upsert(sf)));
+  return cards;
+}
+
+let banlistCache: { names: string[]; fetchedAt: number } | null = null;
+const BANLIST_TTL = 24 * 60 * 60 * 1000;
+
+/** The Commander banned list (card names), cached for a day. */
+export async function getCommanderBanlist(): Promise<string[]> {
+  if (banlistCache && Date.now() - banlistCache.fetchedAt < BANLIST_TTL) {
+    return banlistCache.names;
+  }
+  const names: string[] = [];
+  let url: string | null = `${SCRYFALL_BASE}/cards/search?q=${encodeURIComponent("banned:commander")}&unique=cards`;
+  // The banned list fits in one or two pages; follow next_page defensively.
+  for (let guard = 0; url && guard < 5; guard++) {
+    const res: Response = await fetch(url, { headers: HEADERS });
+    if (!res.ok) break;
+    const data = (await res.json()) as { data: ScryfallCard[]; has_more?: boolean; next_page?: string };
+    for (const c of data.data) names.push(c.name);
+    url = data.has_more && data.next_page ? data.next_page : null;
+  }
+  banlistCache = { names, fetchedAt: Date.now() };
+  return names;
+}
+
 /** Look up a single card by exact name (used by deck import to resolve names). */
 export async function getCardByName(name: string): Promise<Card | null> {
   const res = await fetch(`${SCRYFALL_BASE}/cards/named?exact=${encodeURIComponent(name)}`, {

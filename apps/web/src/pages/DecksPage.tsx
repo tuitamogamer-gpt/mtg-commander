@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { Deck } from "@mtgc/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,7 @@ import { decksApi, deckCardCount } from "@/lib/decks";
 import { ApiError } from "@/lib/api";
 
 export function DecksPage() {
+  const navigate = useNavigate();
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
   const [moxId, setMoxId] = useState("");
@@ -44,13 +45,21 @@ export function DecksPage() {
     setDecks((d) => d.filter((x) => x.id !== id));
   }
 
+  async function onNewDeck() {
+    const deck = await decksApi.create("New deck");
+    navigate(`/decks/${deck.id}/edit`);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-white">My Decks</h1>
-        <Link to="/precons">
-          <Button variant="outline">Browse Precons</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Button onClick={onNewDeck}>New deck</Button>
+          <Link to="/precons">
+            <Button variant="outline">Browse Precons</Button>
+          </Link>
+        </div>
       </div>
 
       <Card>
@@ -103,9 +112,16 @@ export function DecksPage() {
                     <span className="text-xs text-muted capitalize">· {deck.source}</span>
                   </div>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => onDelete(deck.id)}>
-                  Delete
-                </Button>
+                <div className="flex flex-col gap-1 shrink-0">
+                  <Link to={`/decks/${deck.id}/edit`}>
+                    <Button size="sm" variant="secondary" className="w-full">
+                      Edit
+                    </Button>
+                  </Link>
+                  <Button size="sm" variant="ghost" onClick={() => onDelete(deck.id)}>
+                    Delete
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}

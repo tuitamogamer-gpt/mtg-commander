@@ -4,6 +4,7 @@ import { api } from "./api";
 export const decksApi = {
   list: () => api.get<Deck[]>("/api/decks"),
   get: (id: string) => api.get<Deck>(`/api/decks/${id}`),
+  create: (name: string) => api.post<Deck>("/api/decks", { name, cards: [] }),
   remove: (id: string) => api.delete<{ ok: true }>(`/api/decks/${id}`),
   importMoxfield: (deckId: string) =>
     api.post<Deck>("/api/decks/import/moxfield", { deckId }),

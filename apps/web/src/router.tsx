@@ -7,6 +7,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { LobbyListPage } from "./pages/LobbyListPage";
 import { LobbyRoomPage } from "./pages/LobbyRoomPage";
 import { DecksPage } from "./pages/DecksPage";
+import { DeckEditorPage } from "./pages/DeckEditorPage";
 import { PreconsPage } from "./pages/PreconsPage";
 import { GamePage } from "./pages/GamePage";
 
@@ -38,6 +39,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <DecksPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/decks/:id/edit",
+        element: (
+          <RequireAuth>
+            <DeckEditorPage />
           </RequireAuth>
         ),
       },
