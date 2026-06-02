@@ -1,6 +1,6 @@
 {
   "name": "mtg-commander",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Full-stack web client for playing the Magic: The Gathering Commander format online (2-4 players, honor-system rules).",
   "engines": {
@@ -13,10 +13,14 @@
     "dev:web": "pnpm --filter @mtgc/web dev",
     "build": "pnpm --filter @mtgc/shared build && pnpm --filter @mtgc/server build && pnpm --filter @mtgc/web build",
     "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
     "db:migrate": "pnpm --filter @mtgc/server db:migrate",
     "db:seed:precons": "pnpm --filter @mtgc/server seed:precons"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.1",
     "concurrently": "^9.1.0"
   }
 }

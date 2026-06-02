@@ -11,12 +11,18 @@ import { registerRoutes } from "./routes/index.js";
  */
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: {
-      level: config.isProd ? "info" : "debug",
-      transport: config.isProd
-        ? undefined
-        : { target: "pino-pretty", options: { translateTime: "HH:MM:ss", ignore: "pid,hostname" } },
-    },
+    logger:
+      config.nodeEnv === "test"
+        ? false
+        : {
+            level: config.isProd ? "info" : "debug",
+            transport: config.isProd
+              ? undefined
+              : {
+                  target: "pino-pretty",
+                  options: { translateTime: "HH:MM:ss", ignore: "pid,hostname" },
+                },
+          },
   });
 
   await app.register(cors, {

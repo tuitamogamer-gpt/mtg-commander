@@ -31,3 +31,9 @@ Thumbs.db
 
 # Data dumps (MTGJSON downloads)
 apps/server/data/*.json
+
+# Test / e2e artifacts
+coverage/
+playwright-report/
+test-results/
+.playwright/
