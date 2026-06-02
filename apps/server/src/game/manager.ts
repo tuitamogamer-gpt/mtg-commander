@@ -49,6 +49,11 @@ class GameManager {
     return this.games.get(gameId);
   }
 
+  /** Number of games currently live in memory (for metrics). */
+  activeCount(): number {
+    return this.games.size;
+  }
+
   /** Load a game into memory from its DB snapshot (used after a restart). */
   async load(gameId: string): Promise<GameState | undefined> {
     const inMemory = this.games.get(gameId);

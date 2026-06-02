@@ -2,9 +2,11 @@ import { Server as SocketServer } from "socket.io";
 import { buildApp } from "./app.js";
 import { config } from "./config.js";
 import { prisma } from "./db.js";
+import { initObservability } from "./observability.js";
 
 async function main() {
   const app = await buildApp();
+  initObservability(app);
 
   // Attach Socket.IO to the same HTTP server Fastify uses. Namespaces (/lobby,
   // /game) are registered in later phases.

@@ -4,6 +4,9 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { config } from "./config.js";
 import { AUTH_COOKIE } from "./auth/jwt.js";
+import { prisma } from "./db.js";
+import { recordRequest, snapshot } from "./metrics.js";
+import { gameManager } from "./game/manager.js";
 import { registerRoutes } from "./routes/index.js";
 
 /**
@@ -45,21 +48,33 @@ export async function buildApp(): Promise<FastifyInstance> {
     allowList: (req) => req.url === "/api/health",
   });
 
-  // Log method/url/status/duration for every response (skipped in tests).
+  // Log method/url/status/duration and record metrics for every response.
   app.addHook("onResponse", (req, reply, done) => {
+    const ms = Math.round(reply.elapsedTime);
+    recordRequest(reply.statusCode, ms);
     if (config.nodeEnv !== "test") {
-      req.log.info(
-        { method: req.method, url: req.url, status: reply.statusCode, ms: Math.round(reply.elapsedTime) },
-        "request"
-      );
+      req.log.info({ method: req.method, url: req.url, status: reply.statusCode, ms }, "request");
     }
     done();
   });
 
-  app.get("/api/health", async () => ({
-    status: "ok",
-    time: new Date().toISOString(),
-    env: config.nodeEnv,
+  // Liveness + dependency check (DB ping). Used by uptime monitors / containers.
+  app.get("/api/health", async (_req, reply) => {
+    let db: "ok" | "down" = "ok";
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+    } catch {
+      db = "down";
+    }
+    const body = { status: db === "ok" ? "ok" : "degraded", time: new Date().toISOString(), env: config.nodeEnv, db };
+    return reply.code(db === "ok" ? 200 : 503).send(body);
+  });
+
+  // Basic operational metrics.
+  app.get("/api/metrics", async () => ({
+    ...snapshot(),
+    activeGames: gameManager.activeCount(),
+    activeSockets: app.io?.engine?.clientsCount ?? 0,
   }));
 
   await registerRoutes(app);

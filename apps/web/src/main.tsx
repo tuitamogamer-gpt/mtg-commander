@@ -4,6 +4,7 @@ import { RouterProvider } from "react-router-dom";
 import { Toaster } from "sonner";
 import { router } from "./router";
 import { CardHoverPreview } from "./components/CardHoverPreview";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useTheme } from "./store/theme";
 import "./index.css";
 
@@ -14,8 +15,10 @@ function ThemedToaster() {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
-    <CardHoverPreview />
-    <ThemedToaster />
+    <ErrorBoundary>
+      <RouterProvider router={router} />
+      <CardHoverPreview />
+      <ThemedToaster />
+    </ErrorBoundary>
   </React.StrictMode>
 );
