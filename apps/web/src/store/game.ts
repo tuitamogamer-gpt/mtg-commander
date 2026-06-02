@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChatMessage, GameAction, GameStateView } from "@mtgc/shared";
+import type { ChatMessage, GameAction, GameCard, GameStateView } from "@mtgc/shared";
 import { getGameSocket, emitAck } from "@/lib/socket";
 
 interface GameStore {
@@ -11,6 +11,7 @@ interface GameStore {
 
   join: (gameId: string) => Promise<void>;
   act: (action: GameAction) => void;
+  peek: (count: number) => Promise<GameCard[]>;
   sendChat: (text: string) => void;
   leave: () => void;
 }
@@ -58,6 +59,16 @@ export const useGame = create<GameStore>((set, get) => ({
     const { joinedId } = get();
     if (!joinedId) return;
     getGameSocket().emit("game:action", { gameId: joinedId, action });
+  },
+
+  peek: async (count) => {
+    const { joinedId } = get();
+    if (!joinedId) return [];
+    const res = await emitAck<GameCard[]>(getGameSocket(), "game:peek", {
+      gameId: joinedId,
+      count,
+    });
+    return res.ok ? res.data : [];
   },
 
   sendChat: (text) => {

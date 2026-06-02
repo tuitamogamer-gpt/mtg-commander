@@ -1,7 +1,7 @@
 // Socket.IO event contracts shared by client and server.
 
 import type { Room, RoomSummary, RoomSettings } from "./lobby.js";
-import type { GameStateView, GameActionMessage } from "./game.js";
+import type { GameStateView, GameActionMessage, GameCard } from "./game.js";
 
 export interface ChatMessage {
   id: string;
@@ -46,6 +46,12 @@ export interface GameClientToServer {
   "game:action": (payload: GameActionMessage, ack?: (res: SocketResult<null>) => void) => void;
   "game:chat": (payload: { gameId: string; text: string }) => void;
   "game:request_state": (payload: { gameId: string }, ack: (res: SocketResult<GameStateView>) => void) => void;
+  /** Privately peek at the top `count` cards of your own library (scry / look /
+   * tutor). Pass a large count to view the whole library. Does not mutate state. */
+  "game:peek": (
+    payload: { gameId: string; count: number },
+    ack: (res: SocketResult<GameCard[]>) => void
+  ) => void;
 }
 
 export interface GameServerToClient {

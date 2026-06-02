@@ -80,6 +80,16 @@ export function registerGameNamespace(io: Server): void {
       else ack?.({ ok: false, error: "Game not found" });
     });
 
+    socket.on("game:peek", ({ gameId, count }, ack) => {
+      if (isSpectator) {
+        ack?.({ ok: false, error: "Spectators cannot peek" });
+        return;
+      }
+      const cards = gameManager.peekLibrary(gameId, user.id, count);
+      if (cards === null) ack?.({ ok: false, error: "Game not found" });
+      else ack?.({ ok: true, data: cards });
+    });
+
     socket.on("game:action", async (payload: GameActionMessage, ack) => {
       if (isSpectator) {
         ack?.({ ok: false, error: "Spectators cannot act" });

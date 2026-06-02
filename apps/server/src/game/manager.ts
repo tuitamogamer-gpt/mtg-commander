@@ -65,6 +65,15 @@ class GameManager {
     return state ? redactState(state, viewerId) : undefined;
   }
 
+  /** Privately read the top `count` cards of a player's own library (scry / look /
+   * tutor). Returns null if the game/player isn't found. Does not mutate. */
+  peekLibrary(gameId: string, playerId: string, count: number) {
+    const state = this.games.get(gameId);
+    const player = state?.players.find((p) => p.id === playerId);
+    if (!player) return null;
+    return player.zones.library.slice(0, Math.max(0, count));
+  }
+
   /** Apply an action and schedule a snapshot. Returns log lines, or null if the
    * game doesn't exist. */
   apply(gameId: string, actorId: string, action: GameAction): string[] | null {

@@ -208,7 +208,8 @@ export type GameAction =
   | { type: "draw"; count: number }
   | { type: "mill"; count: number }
   | { type: "shuffle" }
-  | { type: "scry"; count: number } // reveals top N to self via a follow-up reveal
+  | { type: "arrange_library_top"; top: string[]; bottom: string[] } // scry/surveil reorder
+  | { type: "reveal_top"; count: number } // reveal top N from library to everyone (log)
   | { type: "mulligan" } // London: shuffle hand back, draw 7, increment mulligan count
   | { type: "keep_hand"; bottom: string[] } // keep opening hand; put these instanceIds on bottom
   | { type: "create_token"; scryfallId: string; name: string; row?: BattlefieldRow }

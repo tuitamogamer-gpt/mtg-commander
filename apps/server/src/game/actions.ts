@@ -168,8 +168,36 @@ export function applyAction(
       break;
     }
 
-    case "scry": {
-      // Visual-only: the client reveals the top N to the actor; nothing to mutate.
+    case "arrange_library_top": {
+      // Scry / surveil reorder. `top` and `bottom` are instanceIds currently in
+      // the library; pull them out, then put `top` (in order) on top and
+      // `bottom` (in order) on the bottom, leaving the rest where they were.
+      const lib = actor.zones.library;
+      const ids = new Set([...action.top, ...action.bottom]);
+      const pulled = new Map<string, GameCard>();
+      for (let i = lib.length - 1; i >= 0; i--) {
+        if (ids.has(lib[i].instanceId)) {
+          pulled.set(lib[i].instanceId, lib[i]);
+          lib.splice(i, 1);
+        }
+      }
+      const topCards = action.top.map((id) => pulled.get(id)).filter((c): c is GameCard => !!c);
+      const bottomCards = action.bottom
+        .map((id) => pulled.get(id))
+        .filter((c): c is GameCard => !!c);
+      actor.zones.library = [...topCards, ...lib, ...bottomCards];
+      logs.push(
+        `${actor.username} arranged the top of their library` +
+          (bottomCards.length ? ` (${bottomCards.length} to bottom)` : "") +
+          "."
+      );
+      break;
+    }
+
+    case "reveal_top": {
+      const n = Math.min(action.count, actor.zones.library.length);
+      const names = actor.zones.library.slice(0, n).map((c) => c.name);
+      logs.push(`${actor.username} reveals from top: ${names.join(", ") || "(none)"}.`);
       break;
     }
 

@@ -3,6 +3,7 @@ import type { BattlefieldRow, GameAction, GameCard, PlayerStateView, Zone } from
 import { GameCardView } from "./GameCardView";
 import { Droppable } from "./Droppable";
 import { PileViewer } from "./PileViewer";
+import { LibraryPeekModal, type PeekMode } from "./LibraryPeekModal";
 import { Button } from "@/components/ui/Button";
 
 interface Props {
@@ -41,6 +42,8 @@ function cardActionHandler(act: Props["act"], card: GameCard) {
 export function SelfBoard({ player, libraryCount, act }: Props) {
   const hand = Array.isArray(player.zones.hand) ? player.zones.hand : [];
   const [viewer, setViewer] = useState<{ title: string; zone: Zone; cards: GameCard[] } | null>(null);
+  const [peek, setPeek] = useState<{ mode: PeekMode; count: number } | null>(null);
+  const [peekN, setPeekN] = useState(1);
 
   const renderCard = (card: GameCard, zone: Zone, size?: "sm" | "md") => (
     <GameCardView
@@ -87,6 +90,23 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
                 Mill
               </Button>
             </div>
+            <div className="flex items-center gap-1 pt-1">
+              <span className="text-[10px] text-muted">N</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={peekN}
+                onChange={(e) => setPeekN(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+                className="h-6 w-10 rounded border border-border bg-surface px-1 text-xs text-white"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <PileBtn label="Scry" onClick={() => setPeek({ mode: "scry", count: peekN })} />
+              <PileBtn label="Look" onClick={() => setPeek({ mode: "look", count: peekN })} />
+              <PileBtn label="Reveal" onClick={() => act({ type: "reveal_top", count: peekN })} />
+              <PileBtn label="Search" onClick={() => setPeek({ mode: "tutor", count: 0 })} />
+            </div>
           </Pile>
 
           <DropPile label="Graveyard" zone="graveyard" cards={player.zones.graveyard}
@@ -122,6 +142,15 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
           onClose={() => setViewer(null)}
         />
       )}
+
+      {peek && (
+        <LibraryPeekModal
+          mode={peek.mode}
+          count={peek.count}
+          act={act}
+          onClose={() => setPeek(null)}
+        />
+      )}
     </div>
   );
 
@@ -150,6 +179,17 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
       </Droppable>
     );
   }
+}
+
+function PileBtn({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-white border border-border hover:bg-surface/70"
+    >
+      {label}
+    </button>
+  );
 }
 
 function Pile({
