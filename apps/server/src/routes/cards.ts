@@ -1,10 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { getCard, getCards, searchCards, getCommanderBanlist } from "../services/scryfall.js";
+import { getCard, getCards, getCardsByNames, searchCards, getCommanderBanlist } from "../services/scryfall.js";
 import type { Card, CardBatchResponse } from "@mtgc/shared";
 
 const batchSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(500),
+});
+
+const byNamesSchema = z.object({
+  names: z.array(z.string().min(1)).min(1).max(500),
 });
 
 export async function cardRoutes(app: FastifyInstance): Promise<void> {
@@ -38,5 +42,15 @@ export async function cardRoutes(app: FastifyInstance): Promise<void> {
     }
     const { cards, notFound } = await getCards(parsed.data.ids);
     return { cards, notFound } satisfies CardBatchResponse;
+  });
+
+  // Resolve cards by exact name (deck text import).
+  app.post("/api/cards/by-names", async (request, reply) => {
+    const parsed = byNamesSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Expected { names: string[] }" });
+    }
+    const { cards, notFound } = await getCardsByNames(parsed.data.names);
+    return { cards, notFound };
   });
 }

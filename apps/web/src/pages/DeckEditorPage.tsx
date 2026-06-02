@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { Card, Deck, DeckCardEntry } from "@mtgc/shared";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card as UICard, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ColorPips } from "@/components/ColorPips";
+import { ManaCurve } from "@/components/ManaCurve";
 import { decksApi } from "@/lib/decks";
 import { cardsApi, buildScryfallQuery, type SearchFilters } from "@/lib/cards";
+import { parseDecklist, deckToText } from "@/lib/deckText";
 import { useCards, cardImage } from "@/store/cards";
 import { useCardHover } from "@/lib/useCardHover";
 import { api, ApiError } from "@/lib/api";
@@ -57,6 +60,9 @@ export function DeckEditorPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -120,10 +126,55 @@ export function DeckEditorPage() {
     try {
       await api.put<Deck>(`/api/decks/${id}`, { name, cards });
       setSaved(true);
+      toast.success("Deck saved");
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function exportDeck() {
+    const text = deckToText({ name, cards });
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Decklist copied to clipboard (Moxfield/Archidekt format)");
+    } catch {
+      toast.error("Could not access clipboard");
+    }
+  }
+
+  async function runImport() {
+    const lines = parseDecklist(importText);
+    if (lines.length === 0) {
+      toast.error("No cards found in the pasted text");
+      return;
+    }
+    setImporting(true);
+    try {
+      const { cards: resolved, notFound } = await cardsApi.byNames(lines.map((l) => l.name));
+      const byName = new Map(resolved.map((c) => [c.name.toLowerCase(), c]));
+      setCards((prev) => {
+        const merged = [...prev];
+        for (const line of lines) {
+          const card = byName.get(line.name.toLowerCase());
+          if (!card) continue;
+          const existing = merged.find((c) => c.scryfallId === card.scryfallId);
+          if (existing) existing.quantity += line.quantity;
+          else merged.push({ scryfallId: card.scryfallId, name: card.name, quantity: line.quantity, isCommander: false });
+        }
+        return merged;
+      });
+      void ensure(resolved.map((c) => c.scryfallId));
+      setSaved(false);
+      setImportOpen(false);
+      setImportText("");
+      toast.success(`Added ${resolved.length} cards${notFound.length ? `, ${notFound.length} not found` : ""}`);
+      if (notFound.length) toast.warning(`Not found: ${notFound.slice(0, 5).join(", ")}${notFound.length > 5 ? "…" : ""}`);
+    } catch {
+      toast.error("Import failed");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -170,16 +221,42 @@ export function DeckEditorPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-sm" />
+      <div className="flex items-center gap-2 flex-wrap">
+        <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-xs" />
         <Button onClick={save} disabled={saving}>
           {saving ? "Saving…" : saved ? "Saved ✓" : "Save"}
+        </Button>
+        <Button variant="secondary" onClick={() => setImportOpen(true)}>
+          Import text
+        </Button>
+        <Button variant="secondary" onClick={exportDeck}>
+          Export
         </Button>
         <Button variant="ghost" onClick={() => navigate("/decks")}>
           Back
         </Button>
         {error && <span className="text-sm text-danger">{error}</span>}
       </div>
+
+      {importOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setImportOpen(false)}>
+          <div className="w-full max-w-lg rounded-lg border border-border bg-surface p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-white">Import from text</h3>
+            <p className="text-sm text-muted">Paste a decklist — one card per line, e.g. <code className="text-accent">1 Sol Ring</code>.</p>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              rows={10}
+              className="w-full rounded-md border border-border bg-bg p-2 text-sm text-white font-mono"
+              placeholder={"1 Sol Ring\n1 Arcane Signet\n10 Forest"}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setImportOpen(false)}>Cancel</Button>
+              <Button onClick={runImport} disabled={importing}>{importing ? "Importing…" : "Add cards"}</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Search */}
@@ -278,6 +355,12 @@ export function DeckEditorPage() {
                 </span>
               </CardTitle>
             </CardHeader>
+            {cards.length > 0 && (
+              <div className="px-4 pt-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted mb-1">Mana curve</div>
+                <ManaCurve cards={cards} />
+              </div>
+            )}
             <CardContent className="space-y-1 max-h-[26rem] overflow-y-auto">
               {sortedCards.length === 0 ? (
                 <p className="text-muted text-sm">Empty — search and click cards to add.</p>

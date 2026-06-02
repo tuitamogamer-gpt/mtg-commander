@@ -4,6 +4,8 @@ import { api } from "./api";
 export const cardsApi = {
   search: (q: string) => api.get<Card[]>(`/api/cards/search?q=${encodeURIComponent(q)}`),
   banlist: () => api.get<{ names: string[] }>("/api/cards/banlist"),
+  byNames: (names: string[]) =>
+    api.post<{ cards: Card[]; notFound: string[] }>("/api/cards/by-names", { names }),
 };
 
 export interface SearchFilters {

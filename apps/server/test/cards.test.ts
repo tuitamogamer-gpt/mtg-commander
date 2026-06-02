@@ -65,4 +65,25 @@ describe("cards (Scryfall proxy, network mocked)", () => {
     const res = await app.inject({ method: "POST", url: "/api/cards/batch", payload: { ids: [] } });
     expect(res.statusCode).toBe(400);
   });
+
+  it("resolves cards by name (text import)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({ data: [scryfallCard("n1", "Sol Ring")], not_found: [{ name: "Fakezzz" }] }),
+          { status: 200 }
+        )
+      )
+    );
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/cards/by-names",
+      payload: { names: ["Sol Ring", "Fakezzz"] },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.cards[0].name).toBe("Sol Ring");
+    expect(body.notFound).toContain("Fakezzz");
+  });
 });

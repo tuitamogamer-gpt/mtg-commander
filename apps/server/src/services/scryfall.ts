@@ -220,6 +220,37 @@ export async function searchCards(query: string, limit = 60): Promise<Card[]> {
   return cards;
 }
 
+/**
+ * Resolve cards by exact name via Scryfall's collection endpoint (max 75/call),
+ * caching each. Returns resolved cards and the names that weren't found.
+ */
+export async function getCardsByNames(
+  names: string[]
+): Promise<{ cards: Card[]; notFound: string[] }> {
+  const unique = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+  const resolved: Card[] = [];
+  const notFound: string[] = [];
+  for (let i = 0; i < unique.length; i += 75) {
+    const chunk = unique.slice(i, i + 75);
+    const res = await fetch(`${SCRYFALL_BASE}/cards/collection`, {
+      method: "POST",
+      headers: { ...HEADERS, "Content-Type": "application/json" },
+      body: JSON.stringify({ identifiers: chunk.map((name) => ({ name })) }),
+    });
+    if (!res.ok) {
+      notFound.push(...chunk);
+      continue;
+    }
+    const data = (await res.json()) as {
+      data: ScryfallCard[];
+      not_found?: Array<{ name?: string }>;
+    };
+    for (const sf of data.data) resolved.push(toCardModel(await upsert(sf)));
+    for (const nf of data.not_found ?? []) if (nf.name) notFound.push(nf.name);
+  }
+  return { cards: resolved, notFound };
+}
+
 let banlistCache: { names: string[]; fetchedAt: number } | null = null;
 const BANLIST_TTL = 24 * 60 * 60 * 1000;
 
