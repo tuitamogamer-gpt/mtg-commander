@@ -1,0 +1,89 @@
+// Prisma schema — SQLite for dev, Postgres-ready.
+// SQLite has no native JSON/array/enum types, so structured fields are stored as
+// JSON strings (suffixed `Json` in comments) and parsed in the app layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  decks        Deck[]
+}
+
+model Deck {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  commander     String? // comma-joined display names
+  cards         String // JSON: DeckCardEntry[]
+  source        String   @default("manual") // moxfield | precon | manual
+  sourceId      String?
+  colorIdentity String   @default("[]") // JSON: string[] (WUBRG letters)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model PreconDeck {
+  id            String    @id @default(cuid())
+  name          String
+  setCode       String
+  commanders    String    @default("") // comma-joined display names
+  colorIdentity String    @default("[]") // JSON: string[]
+  cards         String // JSON: DeckCardEntry[]
+  releaseDate   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@unique([setCode, name])
+  @@index([setCode])
+}
+
+/// Local cache of Scryfall card data. TTL enforced in the app (default 30 days).
+model Card {
+  scryfallId      String   @id
+  oracleId        String?
+  name            String
+  manaCost        String?
+  cmc             Float?
+  typeLine        String?
+  oracleText      String?
+  colors          String? // JSON: string[]
+  colorIdentity   String? // JSON: string[]
+  power           String?
+  toughness       String?
+  loyalty         String?
+  layout          String?
+  setCode         String?
+  collectorNumber String?
+  rarity          String?
+  imageUris       String? // JSON: CardImageUris
+  cardFaces       String? // JSON: CardFace[]
+  scryfallUri     String?
+  fetchedAt       DateTime @default(now())
+
+  @@index([name])
+}
+
+/// Persisted game snapshot for reconnect / crash recovery. Live state lives in
+/// memory; this is written periodically and on significant events.
+model Game {
+  id        String   @id
+  roomId    String
+  status    String   @default("active") // active | finished
+  state     String // JSON: GameState
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId])
+}
