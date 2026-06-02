@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameState, GameAction } from "@mtgc/shared";
+import { isEliminated } from "@mtgc/shared";
 import { buildInitialGameState, redactState, type SeatInput } from "../src/game/state.js";
 import { applyAction } from "../src/game/actions.js";
 
@@ -181,5 +182,67 @@ describe("applyAction", () => {
     expect(() => apply(s, "p1", { type: "reveal_card", instanceId: c.instanceId })).not.toThrow();
     const logs = apply(s, "p1", { type: "concede" });
     expect(logs.join(" ")).toMatch(/conceded/);
+  });
+});
+
+describe("commander mechanics", () => {
+  it("starts the commander in the command zone, flagged and untaxed", () => {
+    const s = fresh();
+    const cmd = p1(s).zones.command[0];
+    expect(cmd).toBeTruthy();
+    expect(cmd.isCommander).toBe(true);
+    expect(cmd.timesCast).toBe(0);
+    // It is NOT in the library/hand.
+    expect(p1(s).zones.library.some((c) => c.isCommander)).toBe(false);
+    expect((p1(s).zones.hand as { length: number }).length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("applies commander tax on each cast from the command zone", () => {
+    const s = fresh();
+    const cmd = p1(s).zones.command[0];
+
+    // First cast: tax 0, timesCast → 1.
+    const log1 = apply(s, "p1", { type: "add_to_stack", instanceId: cmd.instanceId });
+    expect(s.stack[0].timesCast).toBe(1);
+    expect(log1.join(" ")).toMatch(/cast their commander/i);
+    expect(log1.join(" ")).not.toMatch(/tax/i);
+
+    // Return to command, cast again: tax +2, timesCast → 2.
+    apply(s, "p1", { type: "resolve_stack_item", instanceId: cmd.instanceId, to: "command" });
+    expect(p1(s).zones.command[0].timesCast).toBe(1);
+    const log2 = apply(s, "p1", { type: "add_to_stack", instanceId: cmd.instanceId });
+    expect(s.stack[0].timesCast).toBe(2);
+    expect(log2.join(" ")).toMatch(/tax \+2/i);
+  });
+
+  it("returns a commander to the command zone from anywhere", () => {
+    const s = fresh();
+    const cmd = p1(s).zones.command[0];
+    apply(s, "p1", { type: "move_card", instanceId: cmd.instanceId, to: "graveyard" });
+    expect(p1(s).zones.command).toHaveLength(0);
+    apply(s, "p1", { type: "move_card", instanceId: cmd.instanceId, to: "command" });
+    expect(p1(s).zones.command.some((c) => c.instanceId === cmd.instanceId)).toBe(true);
+  });
+
+  it("flags elimination at 21 commander damage and logs it", () => {
+    const s = fresh();
+    const bob = s.players[1];
+    expect(isEliminated(bob)).toBe(false);
+    apply(s, "p1", { type: "set_commander_damage", playerId: "p2", fromPlayerId: "p1", amount: 20 });
+    expect(isEliminated(s.players[1])).toBe(false);
+    const logs = apply(s, "p1", { type: "set_commander_damage", playerId: "p2", fromPlayerId: "p1", amount: 21 });
+    expect(isEliminated(s.players[1])).toBe(true);
+    expect(logs.join(" ")).toMatch(/eliminated/i);
+  });
+
+  it("flags elimination at 0 life and 10 poison", () => {
+    const s = fresh();
+    const lifeLogs = apply(s, "p1", { type: "set_life", playerId: "p2", life: 0 });
+    expect(isEliminated(s.players[1])).toBe(true);
+    expect(lifeLogs.join(" ")).toMatch(/eliminated/i);
+
+    const s2 = fresh();
+    apply(s2, "p1", { type: "set_poison", playerId: "p2", amount: 10 });
+    expect(isEliminated(s2.players[1])).toBe(true);
   });
 });

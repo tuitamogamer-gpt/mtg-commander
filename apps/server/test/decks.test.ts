@@ -94,4 +94,44 @@ describe("decks", () => {
     expect(v.valid).toBe(false);
     expect(v.errors.length).toBeGreaterThan(0);
   });
+
+  it("flags cards outside the commander's color identity", async () => {
+    const CMDR = "aaaaaaaa-0000-0000-0000-000000000001";
+    const BLUE = "aaaaaaaa-0000-0000-0000-000000000002";
+    await seedCard(CMDR, { name: "Mono Red Cmdr", colorIdentity: ["R"], typeLine: "Legendary Creature — Goblin" });
+    await seedCard(BLUE, { name: "Counterspell", colorIdentity: ["U"], typeLine: "Instant" });
+    const deck = (await make({
+      name: "Off-color",
+      cards: [
+        { scryfallId: CMDR, name: "Mono Red Cmdr", quantity: 1, isCommander: true },
+        { scryfallId: BLUE, name: "Counterspell", quantity: 1, isCommander: false },
+      ],
+    })).json();
+    const v = (await app.inject({ method: "GET", url: `/api/decks/${deck.id}/validate`, headers: { cookie } })).json();
+    expect(v.errors.some((e: string) => /color identity/i.test(e))).toBe(true);
+  });
+
+  it("exempts basic lands and 'any number' cards from the singleton rule", async () => {
+    const CMDR = "bbbbbbbb-0000-0000-0000-000000000001";
+    const RATS = "bbbbbbbb-0000-0000-0000-000000000002";
+    await seedCard(CMDR, { name: "Mono Black Cmdr", colorIdentity: ["B"], typeLine: "Legendary Creature — Rat" });
+    await seedCard(RATS, {
+      name: "Rat Colony",
+      colorIdentity: ["B"],
+      typeLine: "Creature — Rat",
+      oracleText: "A deck can have any number of cards named Rat Colony.",
+    });
+    await seedCard("plains-x", { name: "Swamp", colorIdentity: ["B"], typeLine: "Basic Land — Swamp" });
+    const deck = (await make({
+      name: "Rats",
+      cards: [
+        { scryfallId: CMDR, name: "Mono Black Cmdr", quantity: 1, isCommander: true },
+        { scryfallId: RATS, name: "Rat Colony", quantity: 30, isCommander: false },
+        { scryfallId: "plains-x", name: "Swamp", quantity: 20, isCommander: false },
+      ],
+    })).json();
+    const v = (await app.inject({ method: "GET", url: `/api/decks/${deck.id}/validate`, headers: { cookie } })).json();
+    // Neither Rat Colony (×30) nor Swamp (×20) should trigger a singleton warning.
+    expect(v.warnings.some((w: string) => /singleton/i.test(w))).toBe(false);
+  });
 });

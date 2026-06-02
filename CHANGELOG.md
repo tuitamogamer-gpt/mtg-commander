@@ -30,8 +30,15 @@ Turns the v0.1.0 MVP into something a playgroup would actually enjoy using.
   dialog roles on modals.
 - **Faza 29 — Docs & onboarding**: ARCHITECTURE/API/CONTRIBUTING docs + in-app
   first-login walkthrough.
-- **Faza 30 — Release**: full suite green (61 tests), version bump, this entry,
-  `v0.2.0` tag.
+- **Faza 30 — Release**: full suite green, version bump, this entry, `v0.2.0` tag.
+- **Faza 31 — Commander mechanics**: command-zone start, commander tax (+2/cast),
+  return-to-command, 21-damage / 0-life / 10-poison elimination, color-identity
+  deck validation, singleton "any number" exemption.
+- **Faza 32 — Tokens**: visual indicator, copies count, correct preset P/T.
+- **Faza 33 — MTG test coverage**: explicit commander/token/validation tests, a
+  consolidated socket e2e (full lifecycle), a working Playwright happy-path, and
+  `TESTING.md`. Final counts: 59 server + 12 web unit/integration tests + 1
+  Playwright e2e, all green.
 
 Deferred to a later iteration: friends/presence system, spectator waitlist,
 service-worker offline cache, EDHREC suggestions, OpenAPI/swagger, automated axe

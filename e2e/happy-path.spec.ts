@@ -4,14 +4,25 @@ import { test, expect, type Page } from "@playwright/test";
 // a game, and take a turn. Requires precons to be seeded (pnpm db:seed:precons).
 
 let seq = 0;
-const uniqueName = (p: string) => `e2e_${p}_${Date.now()}_${seq++}`;
+// Keep usernames ≤ 24 chars (the server limit): short prefix + base36 time.
+const uniqueName = (p: string) => `${p}${Date.now().toString(36)}${seq++}`;
 
 async function register(page: Page, username: string) {
   await page.goto("/register");
   await page.getByLabel("Username").fill(username);
   await page.getByLabel("Password").fill("secret123");
-  await page.getByRole("button", { name: /sign up/i }).click();
+  // Scope to the form (the header also has a "Sign up" link).
+  await page.getByRole("main").getByRole("button", { name: /sign up/i }).click();
   await expect(page).toHaveURL(/\/lobby$/);
+  await dismissOnboarding(page);
+}
+
+async function dismissOnboarding(page: Page) {
+  const dialog = page.getByRole("dialog", { name: /getting started/i });
+  if (await dialog.isVisible().catch(() => false)) {
+    await dialog.getByRole("button", { name: /skip/i }).click();
+    await expect(dialog).toBeHidden();
+  }
 }
 
 async function importFirstPrecon(page: Page) {
@@ -30,9 +41,9 @@ test("two players play a turn", async ({ browser }) => {
   await importFirstPrecon(host);
   await importFirstPrecon(guest);
 
-  // Host creates a table.
+  // Host creates a table (name is optional → server defaults it).
   await host.goto("/lobby");
-  await host.getByPlaceholder(/table name/i).fill("E2E Table");
+  await host.getByPlaceholder("Friday Pod").fill("E2E Table");
   await host.getByRole("button", { name: /create table/i }).click();
   await expect(host).toHaveURL(/\/lobby\/.+/);
   const roomUrl = host.url();
@@ -42,6 +53,7 @@ test("two players play a turn", async ({ browser }) => {
   await host.getByRole("button", { name: /ready up/i }).click();
 
   await guest.goto(roomUrl);
+  await dismissOnboarding(guest);
   await guest.locator("select").first().selectOption({ index: 1 });
   await guest.getByRole("button", { name: /ready up/i }).click();
 
