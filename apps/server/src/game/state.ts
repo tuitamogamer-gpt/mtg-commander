@@ -52,6 +52,9 @@ function buildPlayer(seat: SeatInput, startingLife: number): PlayerState {
   }
   shuffle(library);
 
+  // Deal an opening hand of 7 (London mulligan starts from here).
+  const hand = library.splice(0, Math.min(7, library.length));
+
   return {
     id: seat.userId,
     username: seat.username,
@@ -63,7 +66,9 @@ function buildPlayer(seat: SeatInput, startingLife: number): PlayerState {
     isMonarch: false,
     hasInitiative: false,
     counters: [],
-    zones: { library, hand: [], battlefield: [], graveyard: [], exile: [], command },
+    mulligans: 0,
+    keptHand: false,
+    zones: { library, hand, battlefield: [], graveyard: [], exile: [], command },
   };
 }
 
@@ -111,6 +116,8 @@ export function redactState(state: GameState, viewerId: string): GameStateView {
       isMonarch: p.isMonarch,
       hasInitiative: p.hasInitiative,
       counters: p.counters,
+      mulligans: p.mulligans,
+      keptHand: p.keptHand,
       zones: {
         library: { count: p.zones.library.length },
         hand: isViewer ? p.zones.hand : { count: p.zones.hand.length },

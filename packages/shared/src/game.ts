@@ -111,6 +111,10 @@ export interface PlayerState {
   hasInitiative: boolean;
   /** Arbitrary named counters tracked at the player level (energy, experience…). */
   counters: Counter[];
+  /** How many mulligans this player has taken (London: bottom this many on keep). */
+  mulligans: number;
+  /** True once the player has kept their opening hand (mulligan phase done). */
+  keptHand: boolean;
   zones: PlayerZones;
 }
 
@@ -196,7 +200,8 @@ export type GameAction =
   | { type: "mill"; count: number }
   | { type: "shuffle" }
   | { type: "scry"; count: number } // reveals top N to self via a follow-up reveal
-  | { type: "mulligan"; keep: number } // London: draw 7, then bottom `keep`-many fewer
+  | { type: "mulligan" } // London: shuffle hand back, draw 7, increment mulligan count
+  | { type: "keep_hand"; bottom: string[] } // keep opening hand; put these instanceIds on bottom
   | { type: "create_token"; scryfallId: string; name: string; row?: BattlefieldRow }
   | { type: "push_stack"; instanceId: string; description: string }
   | { type: "resolve_stack" }

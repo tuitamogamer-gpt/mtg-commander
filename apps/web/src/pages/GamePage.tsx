@@ -16,6 +16,7 @@ import { OpponentPanel } from "@/components/game/OpponentPanel";
 import { SelfBoard } from "@/components/game/SelfBoard";
 import { LifeTracker } from "@/components/game/LifeTracker";
 import { ManaPool } from "@/components/game/ManaPool";
+import { MulliganOverlay } from "@/components/game/MulliganOverlay";
 
 function resolveDrop(overId: string): { to: Zone; row?: BattlefieldRow } | null {
   if (overId.startsWith("bf:")) {
@@ -80,6 +81,7 @@ export function GamePage() {
 
   return (
     <div className="h-screen flex flex-col bg-bg">
+      {me && !me.keptHand && <MulliganOverlay me={me} players={state.players} act={act} />}
       {/* Header */}
       <header className="border-b border-border bg-surface px-4 py-2 flex items-center gap-4">
         <PhaseBar state={state} act={act} />

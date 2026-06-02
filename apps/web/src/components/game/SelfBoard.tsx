@@ -102,14 +102,6 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
       <Droppable id="hand" className="rounded-md border border-border bg-surface/60 p-2">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] uppercase tracking-wide text-muted">Hand ({hand.length})</span>
-          <div className="flex gap-1">
-            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => act({ type: "draw", count: 7 })}>
-              Draw 7
-            </Button>
-            <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => act({ type: "mulligan", keep: 7 })}>
-              Mulligan
-            </Button>
-          </div>
         </div>
         <div className="flex flex-wrap gap-1 min-h-[8.4rem]">
           {hand.length === 0 ? (

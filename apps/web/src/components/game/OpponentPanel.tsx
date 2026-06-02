@@ -23,6 +23,11 @@ export function OpponentPanel({ player }: { player: PlayerStateView }) {
         </span>
         <span className="text-muted text-xs">
           ♥ {player.life} · ✋ {handCount(player.zones.hand)} · 📚 {player.zones.library.count}
+          {!player.keptHand && (
+            <span className="ml-1 text-amber-400" title="Still mulliganing">
+              · mull {player.mulligans}
+            </span>
+          )}
         </span>
       </div>
       <div className="space-y-1">

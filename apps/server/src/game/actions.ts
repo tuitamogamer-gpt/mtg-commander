@@ -163,14 +163,36 @@ export function applyAction(
     }
 
     case "mulligan": {
-      // London mulligan: shuffle hand into library, draw 7, then the client will
-      // bottom (7 - keep) cards via move_card actions.
+      // London mulligan: shuffle hand into library, draw a fresh 7. The number of
+      // mulligans taken is how many cards must be bottomed when the hand is kept.
       actor.zones.library.push(...actor.zones.hand);
       actor.zones.hand = [];
       shuffle(actor.zones.library);
       const n = Math.min(7, actor.zones.library.length);
       actor.zones.hand.push(...actor.zones.library.splice(0, n));
-      logs.push(`${actor.username} took a mulligan (keep ${action.keep}).`);
+      actor.mulligans += 1;
+      actor.keptHand = false;
+      logs.push(`${actor.username} took mulligan #${actor.mulligans}.`);
+      break;
+    }
+
+    case "keep_hand": {
+      // Put the chosen cards on the bottom of the library (London bottoming),
+      // then lock in the hand.
+      for (const instanceId of action.bottom) {
+        const idx = actor.zones.hand.findIndex((c) => c.instanceId === instanceId);
+        if (idx >= 0) {
+          const [card] = actor.zones.hand.splice(idx, 1);
+          card.faceDown = false;
+          actor.zones.library.push(card); // bottom
+        }
+      }
+      actor.keptHand = true;
+      const n = action.bottom.length;
+      logs.push(
+        `${actor.username} kept a hand of ${actor.zones.hand.length}` +
+          (n > 0 ? ` (bottomed ${n}).` : ".")
+      );
       break;
     }
 
