@@ -4,6 +4,8 @@ import type { Room } from "@mtgc/shared";
 import { prisma } from "../db.js";
 import { parseCards } from "../services/deck.js";
 import { buildInitialGameState, redactState, type SeatInput } from "./state.js";
+import { applyAction } from "./actions.js";
+import type { GameAction } from "@mtgc/shared";
 
 /**
  * Authoritative in-memory store of live games. State is held in a Map and
@@ -55,6 +57,40 @@ class GameManager {
   view(gameId: string, viewerId: string): GameStateView | undefined {
     const state = this.games.get(gameId);
     return state ? redactState(state, viewerId) : undefined;
+  }
+
+  /** Apply an action and schedule a snapshot. Returns log lines, or null if the
+   * game doesn't exist. */
+  apply(gameId: string, actorId: string, action: GameAction): string[] | null {
+    const state = this.games.get(gameId);
+    if (!state) return null;
+    const logs = applyAction(state, actorId, action);
+    for (const message of logs) {
+      state.log.push({ ts: Date.now(), playerId: actorId, message });
+    }
+    // Keep the in-state log bounded.
+    if (state.log.length > 200) state.log = state.log.slice(-200);
+    this.scheduleSnapshot(state);
+    return logs;
+  }
+
+  setConnected(gameId: string, playerId: string, connected: boolean): GameState | undefined {
+    const state = this.games.get(gameId);
+    if (!state) return undefined;
+    const player = state.players.find((p) => p.id === playerId);
+    if (player) player.connected = connected;
+    return state;
+  }
+
+  // Debounced persistence so a flurry of actions writes at most ~once/sec.
+  private snapshotTimers = new Map<string, NodeJS.Timeout>();
+  private scheduleSnapshot(state: GameState): void {
+    if (this.snapshotTimers.has(state.id)) return;
+    const timer = setTimeout(() => {
+      this.snapshotTimers.delete(state.id);
+      void this.persist(state);
+    }, 1000);
+    this.snapshotTimers.set(state.id, timer);
   }
 
   async persist(state: GameState): Promise<void> {

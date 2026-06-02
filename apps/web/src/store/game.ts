@@ -1,0 +1,63 @@
+import { create } from "zustand";
+import type { ChatMessage, GameAction, GameStateView } from "@mtgc/shared";
+import { getGameSocket, emitAck } from "@/lib/socket";
+
+interface GameStore {
+  state: GameStateView | null;
+  chat: ChatMessage[];
+  error: string | null;
+  connected: boolean;
+  joinedId: string | null;
+
+  join: (gameId: string) => Promise<void>;
+  act: (action: GameAction) => void;
+  sendChat: (text: string) => void;
+  leave: () => void;
+}
+
+let wired = false;
+
+export const useGame = create<GameStore>((set, get) => ({
+  state: null,
+  chat: [],
+  error: null,
+  connected: false,
+  joinedId: null,
+
+  join: async (gameId) => {
+    const socket = getGameSocket();
+    if (!wired) {
+      wired = true;
+      socket.on("connect", () => set({ connected: true }));
+      socket.on("disconnect", () => set({ connected: false }));
+      socket.on("game:state", (state) => set({ state }));
+      socket.on("game:chat", (msg) => set((s) => ({ chat: [...s.chat, msg] })));
+      socket.on("game:error", (error) => set({ error }));
+    }
+
+    const doJoin = async () => {
+      const res = await emitAck<GameStateView>(socket, "game:join", { gameId });
+      if (res.ok) set({ state: res.data, joinedId: gameId, error: null, connected: true });
+      else set({ error: res.error });
+    };
+
+    if (socket.connected) await doJoin();
+    else socket.once("connect", () => void doJoin());
+  },
+
+  act: (action) => {
+    const { joinedId } = get();
+    if (!joinedId) return;
+    getGameSocket().emit("game:action", { gameId: joinedId, action });
+  },
+
+  sendChat: (text) => {
+    const { joinedId } = get();
+    if (!joinedId || !text.trim()) return;
+    getGameSocket().emit("game:chat", { gameId: joinedId, text });
+  },
+
+  leave: () => {
+    set({ state: null, chat: [], joinedId: null });
+  },
+}));
