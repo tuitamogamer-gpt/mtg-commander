@@ -24,14 +24,17 @@ export function LifeTracker({ players, viewerId, act }: Props) {
             </div>
             <div className="flex items-center gap-1">
               <Button size="icon" variant="ghost" className="h-6 w-6"
+                aria-label={`Decrease ${p.username}'s life`}
                 onClick={() => act({ type: "set_life", playerId: p.id, life: p.life - 1 })}>
                 −
               </Button>
               <span className={cn("w-8 text-center font-bold tabular-nums",
-                p.life <= 0 ? "text-danger" : "text-white")}>
+                p.life <= 0 ? "text-danger" : "text-white")}
+                aria-label={`${p.username} life ${p.life}`}>
                 {p.life}
               </span>
               <Button size="icon" variant="ghost" className="h-6 w-6"
+                aria-label={`Increase ${p.username}'s life`}
                 onClick={() => act({ type: "set_life", playerId: p.id, life: p.life + 1 })}>
                 +
               </Button>

@@ -12,6 +12,7 @@
           var t = localStorage.getItem("mtgc-theme");
           if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
           if (t === "light") document.documentElement.classList.add("light");
+          if (localStorage.getItem("mtgc-contrast") === "1") document.documentElement.classList.add("contrast");
         } catch (e) {}
       })();
     </script>

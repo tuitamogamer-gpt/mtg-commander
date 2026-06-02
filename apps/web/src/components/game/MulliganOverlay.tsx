@@ -101,7 +101,12 @@ export function MulliganOverlay({ me, players, act }: Props) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 p-4">
-      <div className="w-full max-w-4xl rounded-lg border border-border bg-surface p-5 space-y-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Opening hand / mulligan"
+        className="w-full max-w-4xl rounded-lg border border-border bg-surface p-5 space-y-4"
+      >
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">
             {bottoming ? `Put ${needBottom} card${needBottom === 1 ? "" : "s"} on the bottom` : "Opening hand"}

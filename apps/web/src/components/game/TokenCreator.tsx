@@ -55,6 +55,9 @@ export function TokenCreator({ act, onClose }: Props) {
       transition={{ duration: 0.15 }}
     >
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create token"
         className="w-full max-w-lg rounded-lg border border-border bg-surface p-4 space-y-4"
         onClick={(e) => e.stopPropagation()}
         initial={{ scale: 0.96, opacity: 0 }}

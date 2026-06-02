@@ -77,6 +77,9 @@ export function LibraryPeekModal({ mode, count, act, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className="max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-lg border border-border bg-surface p-4 space-y-3"
         onClick={(e) => e.stopPropagation()}
       >

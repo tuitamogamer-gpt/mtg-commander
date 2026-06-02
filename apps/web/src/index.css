@@ -36,6 +36,21 @@ html.light {
   --color-accent-2: #4f46e5;
 }
 
+/* High-contrast mode — brighter text, stronger borders, no dim muted text. */
+html.contrast {
+  --color-border: #6b7aa3;
+  --color-muted: #c3ccdf;
+  --color-text: #ffffff;
+}
+html.contrast.light {
+  --color-border: #475569;
+  --color-muted: #1e293b;
+  --color-text: #000000;
+}
+html.contrast * {
+  border-color: var(--color-border);
+}
+
 html,
 body,
 #root {

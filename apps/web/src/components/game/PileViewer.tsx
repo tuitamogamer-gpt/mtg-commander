@@ -23,6 +23,9 @@ export function PileViewer({ title, zone, cards, owned, act, onClose }: Props) {
       transition={{ duration: 0.15 }}
     >
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         className="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-surface p-4"
         onClick={(e) => e.stopPropagation()}
         initial={{ scale: 0.96, opacity: 0 }}

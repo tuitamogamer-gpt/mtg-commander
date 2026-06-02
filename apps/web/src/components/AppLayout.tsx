@@ -16,7 +16,7 @@ export function AppLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, loading, fetchMe, logout } = useAuth();
-  const { theme, toggle } = useTheme();
+  const { theme, toggle, highContrast, toggleContrast } = useTheme();
 
   // Bootstrap the session once on mount.
   useEffect(() => {
@@ -60,6 +60,16 @@ export function AppLayout() {
               title="Toggle theme"
             >
               {theme === "dark" ? "☀" : "☾"}
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={toggleContrast}
+              aria-pressed={highContrast}
+              aria-label="Toggle high contrast"
+              title="Toggle high contrast"
+            >
+              ◐
             </Button>
             {loading ? null : user ? (
               <>
