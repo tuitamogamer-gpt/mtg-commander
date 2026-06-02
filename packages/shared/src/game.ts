@@ -86,6 +86,10 @@ export interface GameCard {
   row?: BattlefieldRow;
   /** Token / copy that should be removed when it leaves the battlefield. */
   isToken?: boolean;
+  /** Player controlling the card while it is on the stack (caster). */
+  controllerId?: string;
+  /** Optional description shown for a spell/ability on the stack. */
+  stackNote?: string;
 }
 
 export interface PlayerZones {
@@ -132,11 +136,8 @@ export interface ManaPool {
   C: number;
 }
 
-export interface StackItem {
-  instanceId: string;
-  controllerId: string;
-  description: string;
-}
+/** The shared stack is an ordered list of real cards (last = top). */
+export type StackItem = GameCard;
 
 export interface GameState {
   id: string;
@@ -211,8 +212,8 @@ export type GameAction =
   | { type: "mulligan" } // London: shuffle hand back, draw 7, increment mulligan count
   | { type: "keep_hand"; bottom: string[] } // keep opening hand; put these instanceIds on bottom
   | { type: "create_token"; scryfallId: string; name: string; row?: BattlefieldRow }
-  | { type: "push_stack"; instanceId: string; description: string }
-  | { type: "resolve_stack" }
+  | { type: "add_to_stack"; instanceId: string; note?: string } // cast: hand → shared stack
+  | { type: "resolve_stack_item"; instanceId: string; to: Zone; toRow?: BattlefieldRow } // resolve/counter
   | { type: "pass_priority" }
   | { type: "next_phase" }
   | { type: "next_turn" }

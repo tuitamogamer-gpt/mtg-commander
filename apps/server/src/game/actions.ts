@@ -225,19 +225,34 @@ export function applyAction(
       break;
     }
 
-    case "push_stack": {
-      state.stack.push({
-        instanceId: action.instanceId,
-        controllerId: actor.id,
-        description: action.description,
-      });
-      logs.push(`${actor.username} put ${action.description} on the stack.`);
+    case "add_to_stack": {
+      // Cast/activate: take the card from the actor's zones onto the shared stack.
+      const found = removeCardFromZones(actor, action.instanceId);
+      if (!found) break;
+      const { card } = found;
+      card.controllerId = actor.id;
+      card.stackNote = action.note;
+      card.tapped = false;
+      card.row = undefined;
+      state.stack.push(card);
+      state.priorityPlayerId = actor.id; // caster gets priority first
+      logs.push(`${actor.username} put ${cardLabel(card)} on the stack.`);
       break;
     }
 
-    case "resolve_stack": {
-      const item = state.stack.pop();
-      if (item) logs.push(`Resolved: ${item.description}.`);
+    case "resolve_stack_item": {
+      // Remove from the shared stack and place into the card OWNER's zone. Honor
+      // system: any player may resolve (to battlefield/graveyard) or counter
+      // (to graveyard/exile) — the destination says which.
+      const idx = state.stack.findIndex((c) => c.instanceId === action.instanceId);
+      if (idx < 0) break;
+      const [card] = state.stack.splice(idx, 1);
+      card.controllerId = undefined;
+      card.stackNote = undefined;
+      const owner = findPlayer(state, card.ownerId) ?? actor;
+      if (action.to === "battlefield") card.row = action.toRow ?? "other";
+      owner.zones[action.to].push(card);
+      logs.push(`${cardLabel(card)} resolved to ${owner.username}'s ${action.to}.`);
       break;
     }
 

@@ -7,7 +7,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import type { BattlefieldRow, GameAction, Zone } from "@mtgc/shared";
+import type { BattlefieldRow, Zone } from "@mtgc/shared";
 import { useGame } from "@/store/game";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -18,6 +18,7 @@ import { LifeTracker } from "@/components/game/LifeTracker";
 import { ManaPool } from "@/components/game/ManaPool";
 import { MulliganOverlay } from "@/components/game/MulliganOverlay";
 import { DisconnectBanner } from "@/components/game/DisconnectBanner";
+import { StackZone } from "@/components/game/StackZone";
 
 function resolveDrop(overId: string): { to: Zone; row?: BattlefieldRow } | null {
   if (overId.startsWith("bf:")) {
@@ -51,15 +52,20 @@ export function GamePage() {
   function onDragEnd(e: DragEndEvent) {
     if (!e.over) return;
     const instanceId = String(e.active.id);
-    const target = resolveDrop(String(e.over.id));
+    const overId = String(e.over.id);
+    // Dropping onto the stack casts the card (hand → shared stack).
+    if (overId === "stack") {
+      act({ type: "add_to_stack", instanceId });
+      return;
+    }
+    const target = resolveDrop(overId);
     if (!target) return;
-    const action: GameAction = {
+    act({
       type: "move_card",
       instanceId,
       to: target.to,
       ...(target.row ? { toRow: target.row } : {}),
-    };
-    act(action);
+    });
   }
 
   if (!gameId) return null;
@@ -106,6 +112,9 @@ export function GamePage() {
 
       <div className="flex-1 flex min-h-0">
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
+          <div className="p-3">
+            <StackZone state={state} readOnly={isSpectator} act={act} />
+          </div>
           <main className="flex-1 overflow-y-auto p-3 space-y-3">
             {isSpectator ? (
               // Spectator: every player shown read-only (hands/libraries hidden).
@@ -151,25 +160,6 @@ export function GamePage() {
               </section>
             )}
 
-            <section>
-              <h3 className="text-xs uppercase tracking-wide text-muted mb-2">
-                Stack ({state.stack.length})
-              </h3>
-              {state.stack.length === 0 ? (
-                <p className="text-xs text-muted">Empty</p>
-              ) : (
-                <div className="space-y-1">
-                  {[...state.stack].reverse().map((item, i) => (
-                    <div key={item.instanceId + i} className="rounded bg-surface-2 px-2 py-1 text-xs text-white">
-                      {item.description}
-                    </div>
-                  ))}
-                  <Button size="sm" variant="secondary" className="w-full" onClick={() => act({ type: "resolve_stack" })}>
-                    Resolve top
-                  </Button>
-                </div>
-              )}
-            </section>
           </div>
 
           {/* Log + chat */}
