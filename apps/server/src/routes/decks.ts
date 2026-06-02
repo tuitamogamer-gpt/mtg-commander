@@ -122,6 +122,30 @@ export async function deckRoutes(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
+  // Clone a precon from the library into the user's collection.
+  app.post<{ Params: { preconId: string } }>(
+    "/api/decks/import/precon/:preconId",
+    async (request, reply) => {
+      const precon = await prisma.preconDeck.findUnique({
+        where: { id: request.params.preconId },
+      });
+      if (!precon) return reply.code(404).send({ error: "Precon not found" });
+
+      const deck = await prisma.deck.create({
+        data: {
+          userId: request.user!.id,
+          name: precon.name,
+          commander: precon.commanders || null,
+          cards: precon.cards,
+          source: "precon",
+          sourceId: precon.id,
+          colorIdentity: precon.colorIdentity,
+        },
+      });
+      return reply.code(201).send(toDeckModel(deck));
+    }
+  );
+
   // Import a public Moxfield deck into the user's collection.
   app.post("/api/decks/import/moxfield", async (request, reply) => {
     const parsed = moxfieldSchema.safeParse(request.body);
