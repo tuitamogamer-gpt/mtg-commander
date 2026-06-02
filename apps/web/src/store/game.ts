@@ -11,6 +11,7 @@ interface GameStore {
 
   join: (gameId: string) => Promise<void>;
   act: (action: GameAction) => void;
+  undo: () => void;
   peek: (count: number) => Promise<GameCard[]>;
   sendChat: (text: string) => void;
   leave: () => void;
@@ -59,6 +60,11 @@ export const useGame = create<GameStore>((set, get) => ({
     const { joinedId } = get();
     if (!joinedId) return;
     getGameSocket().emit("game:action", { gameId: joinedId, action });
+  },
+
+  undo: () => {
+    const { joinedId } = get();
+    if (joinedId) getGameSocket().emit("game:undo", { gameId: joinedId });
   },
 
   peek: async (count) => {

@@ -74,11 +74,38 @@ class GameManager {
     return player.zones.library.slice(0, Math.max(0, count));
   }
 
+  // Ring buffer of pre-action snapshots per game, for single/multi-step undo.
+  private history = new Map<string, string[]>();
+  private static readonly HISTORY_LIMIT = 20;
+
+  private pushHistory(state: GameState): void {
+    const stack = this.history.get(state.id) ?? [];
+    stack.push(JSON.stringify(state));
+    if (stack.length > GameManager.HISTORY_LIMIT) stack.shift();
+    this.history.set(state.id, stack);
+  }
+
+  /** Restore the most recent pre-action snapshot. Returns the restored state, or
+   * null if there's nothing to undo. */
+  undo(gameId: string): GameState | null {
+    const stack = this.history.get(gameId);
+    if (!stack || stack.length === 0) return null;
+    const snapshot = stack.pop()!;
+    const restored = JSON.parse(snapshot) as GameState;
+    restored.version += 1;
+    restored.log.push({ ts: Date.now(), playerId: "system", message: "An action was undone." });
+    this.games.set(gameId, restored);
+    this.scheduleSnapshot(restored);
+    return restored;
+  }
+
   /** Apply an action and schedule a snapshot. Returns log lines, or null if the
    * game doesn't exist. */
   apply(gameId: string, actorId: string, action: GameAction): string[] | null {
     const state = this.games.get(gameId);
     if (!state) return null;
+    // Snapshot the pre-action state so it can be undone.
+    this.pushHistory(state);
     const logs = applyAction(state, actorId, action);
     for (const message of logs) {
       state.log.push({ ts: Date.now(), playerId: actorId, message });

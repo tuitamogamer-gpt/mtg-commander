@@ -52,6 +52,8 @@ export interface GameClientToServer {
     payload: { gameId: string; count: number },
     ack: (res: SocketResult<GameCard[]>) => void
   ) => void;
+  /** Undo the most recent applied action, restoring the prior snapshot. */
+  "game:undo": (payload: { gameId: string }, ack?: (res: SocketResult<null>) => void) => void;
 }
 
 export interface GameServerToClient {

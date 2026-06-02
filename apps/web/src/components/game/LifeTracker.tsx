@@ -81,6 +81,31 @@ export function LifeTracker({ players, viewerId, act }: Props) {
                 );
               })}
           </div>
+
+          {/* Player-level counters (energy, experience, treasure, …) — own row */}
+          {p.id === viewerId && (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+              {p.counters.map((c) => (
+                <span key={c.kind} className="inline-flex items-center gap-1 text-muted">
+                  <span className="text-white">{c.kind}</span>
+                  <button className="px-1 rounded hover:bg-white/10"
+                    onClick={() => act({ type: "set_player_counter", kind: c.kind, count: c.count - 1 })}>−</button>
+                  <span className="tabular-nums text-white">{c.count}</span>
+                  <button className="px-1 rounded hover:bg-white/10"
+                    onClick={() => act({ type: "set_player_counter", kind: c.kind, count: c.count + 1 })}>+</button>
+                </span>
+              ))}
+              <button
+                className="rounded border border-border px-1.5 text-muted hover:text-white"
+                onClick={() => {
+                  const kind = window.prompt("Counter name (energy, experience, treasure, …):");
+                  if (kind) act({ type: "set_player_counter", kind, count: 1 });
+                }}
+              >
+                + counter
+              </button>
+            </div>
+          )}
         </div>
       ))}
     </div>

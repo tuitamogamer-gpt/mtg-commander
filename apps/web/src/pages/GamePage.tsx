@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   DndContext,
@@ -8,8 +8,10 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import type { BattlefieldRow, Zone } from "@mtgc/shared";
+import type { BattlefieldRow, GameAction, Zone } from "@mtgc/shared";
 import { useGame } from "@/store/game";
+import { useSettings } from "@/store/settings";
+import { playCue } from "@/lib/sound";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -35,10 +37,26 @@ function resolveDrop(overId: string): { to: Zone; row?: BattlefieldRow } | null 
 export function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
-  const { state, chat, error, connected, join, act, sendChat, leave } = useGame();
+  const { state, chat, error, connected, join, act: rawAct, undo, sendChat, leave } = useGame();
+  const { sound, autoPass, toggleSound, toggleAutoPass } = useSettings();
   const [chatText, setChatText] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
+
+  // Wrap dispatch to play a short sound cue for the actor (when enabled).
+  const act = useCallback(
+    (action: GameAction) => {
+      if (sound) {
+        if (action.type === "draw") playCue("draw");
+        else if (action.type === "tap") playCue("tap");
+        else if (action.type === "shuffle" || action.type === "mulligan") playCue("shuffle");
+        else if (action.type === "set_life") playCue("life");
+        else if (action.type === "next_turn") playCue("turn");
+      }
+      rawAct(action);
+    },
+    [rawAct, sound]
+  );
 
   // Mouse drags immediately (small distance); touch waits briefly so a tap or a
   // scroll isn't mistaken for a drag.
@@ -52,6 +70,43 @@ export function GamePage() {
     return () => leave();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId]);
+
+  // Keyboard shortcuts (ignored while typing in a field).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null;
+      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+      if (!state) return;
+      const me = state.players.find((p) => p.id === state.viewerId);
+      if (e.ctrlKey && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        undo();
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!me) return; // spectators have no shortcuts
+      switch (e.key.toLowerCase()) {
+        case "d": act({ type: "draw", count: 1 }); break;
+        case "u": act({ type: "untap_all" }); break;
+        case "s": act({ type: "shuffle" }); break;
+        case "e": act({ type: "next_phase" }); break;
+        case "t": act({ type: "next_turn" }); break;
+        case "m": if (!me.keptHand) act({ type: "mulligan" }); break;
+        case " ":
+          e.preventDefault();
+          act({ type: "pass_priority" });
+          break;
+        case "f":
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else void document.documentElement.requestFullscreen?.();
+          break;
+        default:
+          break;
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state, act, undo]);
 
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -112,6 +167,11 @@ export function GamePage() {
           <span className="rounded bg-accent-2/20 px-2 py-0.5 text-xs text-accent-2 font-medium">
             👁 Spectating
           </span>
+        )}
+        {!isSpectator && (
+          <Button size="sm" variant="secondary" onClick={undo} title="Undo last action (Ctrl+Z)">
+            ↺ Undo
+          </Button>
         )}
         <Button
           size="sm"
@@ -189,6 +249,25 @@ export function GamePage() {
               </section>
             )}
 
+            <section className="space-y-1.5">
+              <h3 className="text-xs uppercase tracking-wide text-muted mb-1">Settings</h3>
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input type="checkbox" checked={sound} onChange={toggleSound} className="accent-[var(--color-accent)]" />
+                Sound effects
+              </label>
+              <label className="flex items-center gap-2 text-sm text-muted">
+                <input type="checkbox" checked={autoPass} onChange={toggleAutoPass} className="accent-[var(--color-accent)]" />
+                Auto-pass empty phases
+              </label>
+              <details className="text-xs text-muted">
+                <summary className="cursor-pointer hover:text-white">Keyboard shortcuts</summary>
+                <ul className="mt-1 space-y-0.5 pl-1">
+                  <li><kbd>D</kbd> draw · <kbd>U</kbd> untap all · <kbd>S</kbd> shuffle</li>
+                  <li><kbd>Space</kbd> pass priority · <kbd>E</kbd> next phase · <kbd>T</kbd> next turn</li>
+                  <li><kbd>M</kbd> mulligan · <kbd>Ctrl+Z</kbd> undo · <kbd>F</kbd> fullscreen</li>
+                </ul>
+              </details>
+            </section>
           </div>
 
           {/* Log + chat */}

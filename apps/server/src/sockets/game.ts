@@ -90,6 +90,25 @@ export function registerGameNamespace(io: Server): void {
       else ack?.({ ok: true, data: cards });
     });
 
+    socket.on("game:undo", async ({ gameId }, ack) => {
+      if (isSpectator) {
+        ack?.({ ok: false, error: "Spectators cannot act" });
+        return;
+      }
+      const restored = gameManager.undo(gameId);
+      if (!restored) {
+        ack?.({ ok: false, error: "Nothing to undo" });
+        return;
+      }
+      await broadcastState(gameId);
+      ns.to(gameChannel(gameId)).emit("game:log", {
+        ts: Date.now(),
+        playerId: user.id,
+        message: `${user.username} undid the last action.`,
+      });
+      ack?.({ ok: true, data: null });
+    });
+
     socket.on("game:action", async (payload: GameActionMessage, ack) => {
       if (isSpectator) {
         ack?.({ ok: false, error: "Spectators cannot act" });

@@ -1,7 +1,11 @@
-import type { GameAction, GameStateView } from "@mtgc/shared";
+import type { GameAction, GameStateView, Phase } from "@mtgc/shared";
 import { PHASE_LABELS, PHASE_ORDER } from "@mtgc/shared";
 import { Button } from "@/components/ui/Button";
+import { useSettings } from "@/store/settings";
 import { cn } from "@/lib/utils";
+
+// Phases the game stops at when "auto-pass empty phases" is on.
+const STOPS = new Set<Phase>(["main1", "combat_attackers", "main2", "end"]);
 
 export function PhaseBar({
   state,
@@ -14,6 +18,22 @@ export function PhaseBar({
 }) {
   const active = state.players[state.activePlayerIndex];
   const priorityName = state.players.find((p) => p.id === state.priorityPlayerId)?.username;
+  const autoPass = useSettings((s) => s.autoPass);
+
+  function nextPhase() {
+    if (!autoPass) {
+      act({ type: "next_phase" });
+      return;
+    }
+    // Advance until the next "stop" phase (at least one step), deterministically.
+    let i = PHASE_ORDER.indexOf(state.phase);
+    let steps = 0;
+    do {
+      i = (i + 1) % PHASE_ORDER.length;
+      steps++;
+    } while (!STOPS.has(PHASE_ORDER[i]) && steps < PHASE_ORDER.length);
+    for (let s = 0; s < steps; s++) act({ type: "next_phase" });
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -47,8 +67,8 @@ export function PhaseBar({
             <Button size="sm" variant="secondary" onClick={() => act({ type: "pass_priority" })}>
               Pass priority
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => act({ type: "next_phase" })}>
-              Next phase
+            <Button size="sm" variant="secondary" onClick={nextPhase}>
+              {autoPass ? "Next stop" : "Next phase"}
             </Button>
             <Button size="sm" onClick={() => act({ type: "next_turn" })}>
               Next turn

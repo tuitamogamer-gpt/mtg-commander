@@ -1,9 +1,10 @@
 import { useState } from "react";
 import type { BattlefieldRow, GameAction, GameCard, PlayerStateView, Zone } from "@mtgc/shared";
-import { GameCardView } from "./GameCardView";
+import { GameCardView, type CardActionKind } from "./GameCardView";
 import { Droppable } from "./Droppable";
 import { PileViewer } from "./PileViewer";
 import { LibraryPeekModal, type PeekMode } from "./LibraryPeekModal";
+import { TokenCreator } from "./TokenCreator";
 import { Button } from "@/components/ui/Button";
 
 interface Props {
@@ -23,18 +24,43 @@ function byRow(cards: GameCard[], row: BattlefieldRow): GameCard[] {
 }
 
 function cardActionHandler(act: Props["act"], card: GameCard) {
-  return (kind: "gy" | "exile" | "plus" | "minus" | "flip") => {
+  return (kind: CardActionKind) => {
+    const move = (to: Zone, toRow?: BattlefieldRow, toIndex?: number) =>
+      act({ type: "move_card", instanceId: card.instanceId, to, toRow, toIndex });
     switch (kind) {
-      case "gy":
-        return act({ type: "move_card", instanceId: card.instanceId, to: "graveyard" });
-      case "exile":
-        return act({ type: "move_card", instanceId: card.instanceId, to: "exile" });
+      case "tap":
+        return act({ type: "tap", instanceId: card.instanceId, tapped: !card.tapped });
+      case "untap":
+        return act({ type: "tap", instanceId: card.instanceId, tapped: false });
       case "plus":
         return act({ type: "add_counter", instanceId: card.instanceId, kind: "+1/+1", delta: 1 });
       case "minus":
         return act({ type: "add_counter", instanceId: card.instanceId, kind: "-1/-1", delta: 1 });
+      case "counter": {
+        const kindName = window.prompt("Counter name (e.g. charge, loyalty):");
+        if (!kindName) return;
+        const n = Number(window.prompt(`How many ${kindName} counters? (negative to remove)`, "1"));
+        if (Number.isFinite(n) && n !== 0) {
+          act({ type: "add_counter", instanceId: card.instanceId, kind: kindName, delta: n });
+        }
+        return;
+      }
       case "flip":
         return act({ type: "flip", instanceId: card.instanceId, faceDown: !card.faceDown });
+      case "reveal":
+        return act({ type: "reveal_card", instanceId: card.instanceId });
+      case "clone":
+        return act({ type: "create_token", scryfallId: card.scryfallId, name: card.name, row: "creatures" });
+      case "gy":
+        return move("graveyard");
+      case "exile":
+        return move("exile");
+      case "hand":
+        return move("hand");
+      case "libTop":
+        return move("library", undefined, 0);
+      case "libBottom":
+        return move("library");
     }
   };
 }
@@ -44,6 +70,7 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
   const [viewer, setViewer] = useState<{ title: string; zone: Zone; cards: GameCard[] } | null>(null);
   const [peek, setPeek] = useState<{ mode: PeekMode; count: number } | null>(null);
   const [peekN, setPeekN] = useState(1);
+  const [tokenOpen, setTokenOpen] = useState(false);
 
   const renderCard = (card: GameCard, zone: Zone, size?: "sm" | "md") => (
     <GameCardView
@@ -122,6 +149,9 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
       <Droppable id="hand" className="rounded-md border border-border bg-surface/60 p-2">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] uppercase tracking-wide text-muted">Hand ({hand.length})</span>
+          <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setTokenOpen(true)}>
+            + Token
+          </Button>
         </div>
         <div className="flex flex-wrap gap-1 min-h-[8.4rem]">
           {hand.length === 0 ? (
@@ -131,6 +161,8 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
           )}
         </div>
       </Droppable>
+
+      {tokenOpen && <TokenCreator act={act} onClose={() => setTokenOpen(false)} />}
 
       {viewer && (
         <PileViewer

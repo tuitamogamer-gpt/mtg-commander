@@ -1,9 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import type { GameCard, Zone } from "@mtgc/shared";
 import { useCards, cardImage } from "@/store/cards";
 import { useCardHover } from "@/lib/useCardHover";
 import { cn } from "@/lib/utils";
+
+export type CardActionKind =
+  | "tap"
+  | "untap"
+  | "plus"
+  | "minus"
+  | "counter"
+  | "gy"
+  | "exile"
+  | "hand"
+  | "libTop"
+  | "libBottom"
+  | "flip"
+  | "reveal"
+  | "clone";
 
 interface Props {
   card: GameCard;
@@ -12,12 +27,28 @@ interface Props {
   owned: boolean;
   size?: "sm" | "md";
   onTap?: () => void;
-  onAction?: (kind: "gy" | "exile" | "plus" | "minus" | "flip") => void;
+  onAction?: (kind: CardActionKind) => void;
 }
+
+const MENU: { kind: CardActionKind; label: string }[] = [
+  { kind: "tap", label: "Tap / untap" },
+  { kind: "plus", label: "Add +1/+1" },
+  { kind: "minus", label: "Add −1/−1" },
+  { kind: "counter", label: "Add counter…" },
+  { kind: "flip", label: "Flip face-down" },
+  { kind: "clone", label: "Clone (token)" },
+  { kind: "reveal", label: "Reveal" },
+  { kind: "hand", label: "→ Hand" },
+  { kind: "gy", label: "→ Graveyard" },
+  { kind: "exile", label: "→ Exile" },
+  { kind: "libTop", label: "→ Library (top)" },
+  { kind: "libBottom", label: "→ Library (bottom)" },
+];
 
 export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }: Props) {
   const ensure = useCards((s) => s.ensure);
   const data = useCards((s) => s.cards[card.scryfallId]);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!card.faceDown) void ensure([card.scryfallId]);
@@ -41,6 +72,11 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
       {...attributes}
       {...hover}
       onClick={() => zone === "battlefield" && owned && onTap?.()}
+      onContextMenu={(e) => {
+        if (!owned || !onAction) return;
+        e.preventDefault();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}
       className={cn(
         "group relative shrink-0 rounded-md border border-border bg-surface-2 overflow-visible select-none",
         w,
@@ -83,7 +119,7 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
               className="rounded-full bg-black/80 px-1 text-[9px] font-bold text-white border border-white/30"
               title={c.kind}
             >
-              {c.kind === "+1/+1" ? `+${c.count}` : c.kind === "-1/-1" ? `-${c.count}` : `${c.count}`}
+              {c.kind === "+1/+1" ? `+${c.count}` : c.kind === "-1/-1" ? `-${c.count}` : `${c.kind} ${c.count}`}
             </span>
           ))}
         </div>
@@ -107,6 +143,31 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
           <ToolBtn label="EX" title="To exile" onClick={() => onAction("exile")} />
           <ToolBtn label="⟳" title="Flip face-down" onClick={() => onAction("flip")} />
         </div>
+      )}
+
+      {/* Right-click context menu */}
+      {menu && onAction && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
+          <div
+            className="fixed z-50 min-w-40 rounded-md border border-border bg-surface py-1 shadow-xl"
+            style={{ left: Math.min(menu.x, window.innerWidth - 180), top: Math.min(menu.y, window.innerHeight - 320) }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {MENU.map((m) => (
+              <button
+                key={m.kind}
+                className="block w-full px-3 py-1 text-left text-xs text-white hover:bg-surface-2"
+                onClick={() => {
+                  onAction(m.kind);
+                  setMenu(null);
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

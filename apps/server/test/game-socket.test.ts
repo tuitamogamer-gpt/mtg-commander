@@ -76,7 +76,25 @@ describe("game sockets", () => {
     const blocked = await ack<{ ok: boolean }>(gx, "game:action", { gameId, action: { type: "draw", count: 1 } });
     expect(blocked.ok).toBe(false);
 
+    const before = await ack<{ ok: boolean; data: { players: { id: string; zones: { library: { count: number } } }[]; viewerId: string } }>(
+      ga,
+      "game:request_state",
+      { gameId }
+    );
+    const libBefore = before.data.players.find((p) => p.id === before.data.viewerId)!.zones.library.count;
+
     const ok = await ack<{ ok: boolean }>(ga, "game:action", { gameId, action: { type: "draw", count: 1 } });
     expect(ok.ok).toBe(true);
+
+    // Undo restores the pre-draw library count.
+    const undone = await ack<{ ok: boolean }>(ga, "game:undo", { gameId });
+    expect(undone.ok).toBe(true);
+    const after = await ack<{ ok: boolean; data: { players: { id: string; zones: { library: { count: number } } }[]; viewerId: string } }>(
+      ga,
+      "game:request_state",
+      { gameId }
+    );
+    const libAfter = after.data.players.find((p) => p.id === after.data.viewerId)!.zones.library.count;
+    expect(libAfter).toBe(libBefore);
   });
 });
