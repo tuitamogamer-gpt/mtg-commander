@@ -19,6 +19,8 @@ class RoomManager {
       playerCount: room.players.length,
       maxPlayers: room.maxPlayers,
       status: room.status,
+      allowSpectators: room.settings.allowSpectators,
+      gameId: room.gameId,
     }));
   }
 

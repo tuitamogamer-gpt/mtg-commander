@@ -151,6 +151,8 @@ export interface GameState {
   stack: StackItem[];
   players: PlayerState[];
   startingLife: number;
+  /** Whether non-seated users may spectate this game. */
+  allowSpectators: boolean;
   /** Monotonic version, bumped on every applied action for ordering/debug. */
   version: number;
   log: GameLogEntry[];

@@ -80,6 +80,7 @@ export function GamePage() {
   const me = state.players.find((p) => p.id === state.viewerId);
   const opponents = state.players.filter((p) => p.id !== state.viewerId);
   const isHost = state.players[0]?.id === state.viewerId;
+  const isSpectator = !me;
 
   return (
     <div className="h-screen flex flex-col bg-bg">
@@ -92,7 +93,12 @@ export function GamePage() {
       )}
       {/* Header */}
       <header className="border-b border-border bg-surface px-4 py-2 flex items-center gap-4">
-        <PhaseBar state={state} act={act} />
+        <PhaseBar state={state} act={act} readOnly={isSpectator} />
+        {isSpectator && (
+          <span className="rounded bg-accent-2/20 px-2 py-0.5 text-xs text-accent-2 font-medium">
+            👁 Spectating
+          </span>
+        )}
         <Button size="sm" variant="outline" onClick={() => navigate("/lobby")}>
           Leave
         </Button>
@@ -101,19 +107,31 @@ export function GamePage() {
       <div className="flex-1 flex min-h-0">
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
           <main className="flex-1 overflow-y-auto p-3 space-y-3">
-            {/* Opponents */}
-            <div
-              className="grid gap-2"
-              style={{ gridTemplateColumns: `repeat(${Math.max(1, opponents.length)}, minmax(0, 1fr))` }}
-            >
-              {opponents.map((p) => (
-                <OpponentPanel key={p.id} player={p} />
-              ))}
-            </div>
+            {isSpectator ? (
+              // Spectator: every player shown read-only (hands/libraries hidden).
+              <div
+                className="grid gap-2"
+                style={{ gridTemplateColumns: `repeat(${Math.min(2, state.players.length)}, minmax(0, 1fr))` }}
+              >
+                {state.players.map((p) => (
+                  <OpponentPanel key={p.id} player={p} />
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* Opponents */}
+                <div
+                  className="grid gap-2"
+                  style={{ gridTemplateColumns: `repeat(${Math.max(1, opponents.length)}, minmax(0, 1fr))` }}
+                >
+                  {opponents.map((p) => (
+                    <OpponentPanel key={p.id} player={p} />
+                  ))}
+                </div>
 
-            {/* Your board */}
-            {me && (
-              <SelfBoard player={me} libraryCount={me.zones.library.count} act={act} />
+                {/* Your board */}
+                {me && <SelfBoard player={me} libraryCount={me.zones.library.count} act={act} />}
+              </>
             )}
           </main>
         </DndContext>
@@ -164,7 +182,10 @@ export function GamePage() {
               ))}
               {chat.map((m) => (
                 <div key={m.id}>
-                  <span className="text-accent">{m.username}: </span>
+                  <span className={m.isSpectator ? "text-accent-2" : "text-accent"}>
+                    {m.username}
+                    {m.isSpectator && " 👁"}:{" "}
+                  </span>
                   <span className="text-white">{m.text}</span>
                 </div>
               ))}

@@ -78,7 +78,8 @@ export function buildInitialGameState(
   gameId: string,
   roomId: string,
   seats: SeatInput[],
-  startingLife: number
+  startingLife: number,
+  allowSpectators: boolean
 ): GameState {
   const players = seats.map((s) => buildPlayer(s, startingLife));
   return {
@@ -92,6 +93,7 @@ export function buildInitialGameState(
     stack: [],
     players,
     startingLife,
+    allowSpectators,
     version: 0,
     log: [
       { ts: Date.now(), playerId: "system", message: "Game started." },
@@ -143,6 +145,7 @@ export function redactState(state: GameState, viewerId: string): GameStateView {
     priorityPlayerId: state.priorityPlayerId,
     stack: state.stack,
     startingLife: state.startingLife,
+    allowSpectators: state.allowSpectators,
     version: state.version,
     log: state.log,
     viewerId,

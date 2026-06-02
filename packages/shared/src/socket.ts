@@ -11,6 +11,8 @@ export interface ChatMessage {
   username: string;
   text: string;
   ts: number;
+  /** True when sent by a spectator rather than a seated player. */
+  isSpectator?: boolean;
 }
 
 // --- Lobby namespace (/lobby) ----------------------------------------------

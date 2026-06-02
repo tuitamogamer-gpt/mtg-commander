@@ -7,6 +7,8 @@ export type MulliganRule = "free7-then-london" | "london" | "none";
 export interface RoomSettings {
   startingLife: number;
   mulligan: MulliganRule;
+  /** Allow non-seated users to watch the game (hands/libraries stay hidden). */
+  allowSpectators: boolean;
 }
 
 export interface RoomPlayer {
@@ -39,9 +41,13 @@ export interface RoomSummary {
   playerCount: number;
   maxPlayers: number;
   status: RoomStatus;
+  allowSpectators: boolean;
+  /** Set once the game has started, so spectators can navigate to it. */
+  gameId: string | null;
 }
 
 export const DEFAULT_ROOM_SETTINGS: RoomSettings = {
   startingLife: 40,
   mulligan: "free7-then-london",
+  allowSpectators: true,
 };

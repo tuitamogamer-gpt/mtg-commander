@@ -6,9 +6,11 @@ import { cn } from "@/lib/utils";
 export function PhaseBar({
   state,
   act,
+  readOnly = false,
 }: {
   state: GameStateView;
   act: (a: GameAction) => void;
+  readOnly?: boolean;
 }) {
   const active = state.players[state.activePlayerIndex];
   const priorityName = state.players.find((p) => p.id === state.priorityPlayerId)?.username;
@@ -40,15 +42,19 @@ export function PhaseBar({
         {priorityName && (
           <span className="text-xs text-muted">priority: {priorityName}</span>
         )}
-        <Button size="sm" variant="secondary" onClick={() => act({ type: "pass_priority" })}>
-          Pass priority
-        </Button>
-        <Button size="sm" variant="secondary" onClick={() => act({ type: "next_phase" })}>
-          Next phase
-        </Button>
-        <Button size="sm" onClick={() => act({ type: "next_turn" })}>
-          Next turn
-        </Button>
+        {!readOnly && (
+          <>
+            <Button size="sm" variant="secondary" onClick={() => act({ type: "pass_priority" })}>
+              Pass priority
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => act({ type: "next_phase" })}>
+              Next phase
+            </Button>
+            <Button size="sm" onClick={() => act({ type: "next_turn" })}>
+              Next turn
+            </Button>
+          </>
+        )}
       </div>
     </div>
   );

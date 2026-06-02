@@ -12,6 +12,7 @@ export function LobbyListPage() {
   const [name, setName] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [startingLife, setStartingLife] = useState(40);
+  const [allowSpectators, setAllowSpectators] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -24,7 +25,7 @@ export function LobbyListPage() {
     setBusy(true);
     setError(null);
     try {
-      const room = await createRoom(name, maxPlayers, { startingLife });
+      const room = await createRoom(name, maxPlayers, { startingLife, allowSpectators });
       navigate(`/lobby/${room.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create room");
@@ -91,6 +92,15 @@ export function LobbyListPage() {
               </select>
             </div>
           </div>
+          <label className="flex items-center gap-2 text-sm text-muted">
+            <input
+              type="checkbox"
+              checked={allowSpectators}
+              onChange={(e) => setAllowSpectators(e.target.checked)}
+              className="h-4 w-4 accent-[var(--color-accent)]"
+            />
+            Allow spectators
+          </label>
           <Button onClick={onCreate} disabled={busy}>
             {busy ? "Creating…" : "Create table"}
           </Button>
@@ -121,13 +131,23 @@ export function LobbyListPage() {
                       </span>
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    disabled={room.status !== "waiting" || room.playerCount >= room.maxPlayers}
-                    onClick={() => onJoin(room.id)}
-                  >
-                    Join
-                  </Button>
+                  {room.status === "in_game" ? (
+                    room.allowSpectators && room.gameId ? (
+                      <Button size="sm" variant="outline" onClick={() => navigate(`/game/${room.gameId}`)}>
+                        Spectate
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted">In progress</span>
+                    )
+                  ) : (
+                    <Button
+                      size="sm"
+                      disabled={room.playerCount >= room.maxPlayers}
+                      onClick={() => onJoin(room.id)}
+                    >
+                      Join
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ))}

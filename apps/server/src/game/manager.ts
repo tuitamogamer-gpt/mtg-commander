@@ -33,7 +33,13 @@ class GameManager {
     });
 
     const gameId = nanoid(10);
-    const state = buildInitialGameState(gameId, room.id, seats, room.settings.startingLife);
+    const state = buildInitialGameState(
+      gameId,
+      room.id,
+      seats,
+      room.settings.startingLife,
+      room.settings.allowSpectators
+    );
     this.games.set(gameId, state);
     await this.persist(state);
     return state;

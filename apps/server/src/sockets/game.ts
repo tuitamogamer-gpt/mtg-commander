@@ -32,6 +32,7 @@ export function registerGameNamespace(io: Server): void {
   ns.on("connection", (socket: GameNsSocket) => {
     const user = socket.data.user;
     let joinedGameId: string | null = null;
+    let isSpectator = false;
 
     socket.on("game:join", async ({ gameId }, ack) => {
       const state = await gameManager.load(gameId);
@@ -41,9 +42,20 @@ export function registerGameNamespace(io: Server): void {
       }
       const seat = state.players.find((p) => p.id === user.id);
       if (!seat) {
-        ack?.({ ok: false, error: "You are not a player in this game" });
+        // Non-seated user: allow read-only spectating if the table permits it.
+        if (!state.allowSpectators) {
+          ack?.({ ok: false, error: "This table does not allow spectators" });
+          return;
+        }
+        isSpectator = true;
+        joinedGameId = gameId;
+        void socket.join(gameChannel(gameId));
+        const view = gameManager.view(gameId, user.id)!; // viewerId matches no seat → hands hidden
+        ack?.({ ok: true, data: view });
         return;
       }
+
+      isSpectator = false;
       joinedGameId = gameId;
       void socket.join(gameChannel(gameId));
       gameManager.setConnected(gameId, user.id, true);
@@ -69,6 +81,10 @@ export function registerGameNamespace(io: Server): void {
     });
 
     socket.on("game:action", async (payload: GameActionMessage, ack) => {
+      if (isSpectator) {
+        ack?.({ ok: false, error: "Spectators cannot act" });
+        return;
+      }
       const logs = gameManager.apply(payload.gameId, user.id, payload.action);
       if (logs === null) {
         ack?.({ ok: false, error: "Game not found" });
@@ -96,12 +112,13 @@ export function registerGameNamespace(io: Server): void {
         username: user.username,
         text: trimmed.slice(0, 500),
         ts: Date.now(),
+        isSpectator,
       };
       ns.to(gameChannel(gameId)).emit("game:chat", msg);
     });
 
     socket.on("disconnect", () => {
-      if (!joinedGameId) return;
+      if (!joinedGameId || isSpectator) return;
       gameManager.setConnected(joinedGameId, user.id, false);
       socket.to(gameChannel(joinedGameId)).emit("game:player_connection", {
         playerId: user.id,
