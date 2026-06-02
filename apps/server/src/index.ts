@@ -10,6 +10,11 @@ async function main() {
   // /game) are registered in later phases.
   const io = new SocketServer(app.server, {
     cors: { origin: config.clientOrigins, credentials: true },
+    // Heartbeat tuning: detect dropped clients within ~45s while keeping idle
+    // chatter low. maxHttpBufferSize bounds a single payload (game states).
+    pingInterval: 25_000,
+    pingTimeout: 20_000,
+    maxHttpBufferSize: 2_000_000,
   });
   app.decorate("io", io);
 

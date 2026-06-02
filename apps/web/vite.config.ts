@@ -26,4 +26,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split large libraries into their own cacheable chunks.
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          motion: ["framer-motion"],
+          dnd: ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
+          net: ["socket.io-client"],
+        },
+      },
+    },
+  },
 });
