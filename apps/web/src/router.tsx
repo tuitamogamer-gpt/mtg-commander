@@ -7,6 +7,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { LobbyListPage } from "./pages/LobbyListPage";
 import { LobbyRoomPage } from "./pages/LobbyRoomPage";
 import { DecksPage } from "./pages/DecksPage";
+import { PreconsPage } from "./pages/PreconsPage";
 import { GamePage } from "./pages/GamePage";
 
 export const router = createBrowserRouter([
@@ -37,6 +38,14 @@ export const router = createBrowserRouter([
         element: (
           <RequireAuth>
             <DecksPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/precons",
+        element: (
+          <RequireAuth>
+            <PreconsPage />
           </RequireAuth>
         ),
       },
