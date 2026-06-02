@@ -1,0 +1,87 @@
+// PostgreSQL variant of the schema, used for production / Docker. Prisma requires
+// a literal `provider`, so this mirrors schema.prisma with provider = postgresql.
+// Select it explicitly: `prisma db push --schema prisma/postgres.prisma`.
+// Keep the model block in sync with prisma/schema.prisma.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  decks        Deck[]
+}
+
+model Deck {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  commander     String?
+  cards         String // JSON: DeckCardEntry[]
+  source        String   @default("manual")
+  sourceId      String?
+  colorIdentity String   @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model PreconDeck {
+  id            String    @id @default(cuid())
+  name          String
+  setCode       String
+  commanders    String    @default("")
+  colorIdentity String    @default("[]")
+  cards         String // JSON: DeckCardEntry[]
+  releaseDate   DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@unique([setCode, name])
+  @@index([setCode])
+}
+
+model Card {
+  scryfallId      String   @id
+  oracleId        String?
+  name            String
+  manaCost        String?
+  cmc             Float?
+  typeLine        String?
+  oracleText      String?
+  colors          String?
+  colorIdentity   String?
+  power           String?
+  toughness       String?
+  loyalty         String?
+  layout          String?
+  setCode         String?
+  collectorNumber String?
+  rarity          String?
+  imageUris       String?
+  cardFaces       String?
+  scryfallUri     String?
+  fetchedAt       DateTime @default(now())
+
+  @@index([name])
+}
+
+model Game {
+  id        String   @id
+  roomId    String
+  status    String   @default("active")
+  state     String // JSON: GameState
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId])
+}

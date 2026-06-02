@@ -169,6 +169,48 @@ These are deliberately deferred — the slice above is fully playable without th
 
 ---
 
+## Deployment
+
+A `docker-compose.yml` brings up Postgres + the API server + an nginx-served web
+build. The server image runs Prisma against Postgres (via `prisma/postgres.prisma`,
+synced with `prisma db push`); nginx serves the SPA and reverse-proxies `/api`
+and `/socket.io` to the server so the browser stays same-origin.
+
+```bash
+cp .env.example .env          # set JWT_SECRET and a POSTGRES_PASSWORD
+docker compose up --build     # web → http://localhost:8080
+docker compose exec server pnpm seed:precons   # one-time precon seed
+```
+
+Environment variables (`.env`): `POSTGRES_USER/PASSWORD/DB`, `JWT_SECRET`
+(required), `CLIENT_ORIGIN` (browser origin, for CORS + cookie), `COOKIE_DOMAIN`
+(optional, for cross-subdomain auth), `WEB_PORT`.
+
+**Health check:** `GET /api/health` returns `{ status: "ok", … }` for uptime
+monitors / container healthchecks.
+
+**Postgres vs SQLite:** dev uses SQLite (`prisma/schema.prisma`); production uses
+the mirrored `prisma/postgres.prisma`. Keep the two model blocks in sync. Because
+the providers differ, production uses `prisma db push` (schema sync) rather than
+the SQLite migration history.
+
+### Other hosts
+
+- **Fly.io** — `fly launch` for the server (set `JWT_SECRET`, `DATABASE_URL`,
+  `CLIENT_ORIGIN` as secrets; attach Fly Postgres), and deploy the web image
+  separately or point a static host at `apps/web/dist`. Set `CLIENT_ORIGIN` to
+  the web origin and `COOKIE_DOMAIN` if sharing a parent domain.
+- **Railway** — one service from `apps/server/Dockerfile` + a Railway Postgres
+  plugin (injects `DATABASE_URL`); a second service from `apps/web/Dockerfile`
+  (or any static host for `apps/web/dist`).
+
+> Note: the Docker/compose setup is provided as a starting point and was authored
+> but not run in the build environment — expect to tune resource limits, TLS
+> termination, and the run-via-`tsx` server entry (swap to a compiled/bundled
+> start for a leaner image) for a real production deployment.
+
+---
+
 ## External data & attribution
 
 - **Scryfall** — card data and images (no auth required). Please respect their

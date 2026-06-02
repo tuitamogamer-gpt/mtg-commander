@@ -1,0 +1,53 @@
+# Production-ish stack: Postgres + API server + nginx-served web.
+#   cp .env.example .env   # then set JWT_SECRET and a DB password
+#   docker compose up --build
+# Web on http://localhost:8080, API proxied at /api and /socket.io.
+# Seed precons once the stack is up:
+#   docker compose exec server pnpm seed:precons
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mtgc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mtgc}
+      POSTGRES_DB: ${POSTGRES_DB:-mtgc}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mtgc}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-mtgc}:${POSTGRES_PASSWORD:-mtgc}@postgres:5432/${POSTGRES_DB:-mtgc}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      CLIENT_ORIGIN: ${CLIENT_ORIGIN:-http://localhost:8080}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - server
+
+volumes:
+  pgdata:

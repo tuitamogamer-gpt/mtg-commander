@@ -32,4 +32,5 @@ export const cookieOptions = {
   secure: config.isProd,
   path: "/",
   maxAge: 30 * 24 * 60 * 60, // seconds
+  ...(config.cookieDomain ? { domain: config.cookieDomain } : {}),
 };

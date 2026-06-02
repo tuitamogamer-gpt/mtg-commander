@@ -13,10 +13,13 @@ export const config = {
   jwtSecret: required("JWT_SECRET", "dev-insecure-secret-change-me"),
   nodeEnv: process.env.NODE_ENV ?? "development",
   isProd: process.env.NODE_ENV === "production",
-  clientOrigins: (process.env.CLIENT_ORIGIN ?? "http://localhost:5173")
+  clientOrigins: (process.env.CLIENT_ORIGIN ?? process.env.CORS_ORIGIN ?? "http://localhost:5173")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean),
+  /** Optional cookie Domain attribute (e.g. ".example.com") for cross-subdomain
+   * auth in production. Unset = host-only cookie (correct for localhost). */
+  cookieDomain: process.env.COOKIE_DOMAIN || undefined,
   /** Card cache time-to-live in milliseconds (30 days). */
   cardCacheTtlMs: 30 * 24 * 60 * 60 * 1000,
 } as const;
