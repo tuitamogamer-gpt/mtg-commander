@@ -11,21 +11,19 @@ interface Props {
 
 // Common token presets. `id` is a synthetic scryfall id — tokens render by name
 // (no art lookup needed) which keeps token creation offline and instant.
-const PRESETS: { name: string; row: "creatures" | "other" }[] = [
+// Common tokens with correct P/T / type. `id` is synthetic — tokens render by
+// name (no art lookup) which keeps creation offline and instant.
+export const PRESETS: { name: string; row: "creatures" | "other" }[] = [
   { name: "Soldier 1/1 W", row: "creatures" },
   { name: "Goblin 1/1 R", row: "creatures" },
+  { name: "Spirit 1/1 W Flying", row: "creatures" },
+  { name: "Saproling 1/1 G", row: "creatures" },
   { name: "Zombie 2/2 B", row: "creatures" },
-  { name: "Spirit 1/1 W flying", row: "creatures" },
-  { name: "Elf Warrior 1/1 G", row: "creatures" },
   { name: "Beast 3/3 G", row: "creatures" },
-  { name: "Angel 4/4 W flying", row: "creatures" },
-  { name: "Dragon 5/5 R flying", row: "creatures" },
-  { name: "Thopter 1/1 colorless flying", row: "creatures" },
   { name: "Treasure", row: "other" },
   { name: "Clue", row: "other" },
   { name: "Food", row: "other" },
   { name: "Map", row: "other" },
-  { name: "Blood", row: "other" },
 ];
 
 let tokenSeq = 0;
@@ -34,9 +32,13 @@ export function TokenCreator({ act, onClose }: Props) {
   const [name, setName] = useState("");
   const [power, setPower] = useState("");
   const [toughness, setToughness] = useState("");
+  const [count, setCount] = useState(1);
 
   function create(displayName: string, row: "creatures" | "other") {
-    act({ type: "create_token", scryfallId: `token:${displayName}:${tokenSeq++}`, name: displayName, row });
+    const n = Math.max(1, Math.min(99, count));
+    for (let i = 0; i < n; i++) {
+      act({ type: "create_token", scryfallId: `token:${displayName}:${tokenSeq++}`, name: displayName, row });
+    }
   }
 
   function createCustom() {
@@ -68,6 +70,18 @@ export function TokenCreator({ act, onClose }: Props) {
           <h3 className="text-lg font-semibold text-white">Create token</h3>
           <Button size="sm" variant="ghost" onClick={onClose}>Close</Button>
         </div>
+
+        <label className="flex items-center gap-2 text-sm text-muted">
+          Copies
+          <input
+            type="number"
+            min={1}
+            max={99}
+            value={count}
+            onChange={(e) => setCount(Math.max(1, Math.min(99, Number(e.target.value) || 1)))}
+            className="h-9 w-16 rounded-md border border-border bg-surface px-2 text-center text-sm text-white"
+          />
+        </label>
 
         <div>
           <div className="text-xs uppercase tracking-wide text-muted mb-2">Common</div>

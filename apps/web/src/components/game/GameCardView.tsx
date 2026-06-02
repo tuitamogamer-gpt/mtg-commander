@@ -82,7 +82,9 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
         setMenu({ x: e.clientX, y: e.clientY });
       }}
       className={cn(
-        "group relative shrink-0 rounded-md border border-border bg-surface-2 overflow-visible select-none",
+        "group relative shrink-0 rounded-md border bg-surface-2 overflow-visible select-none",
+        // Tokens get a distinct dashed accent border so they read as non-real cards.
+        card.isToken ? "border-dashed border-accent-2" : "border-border",
         w,
         h,
         owned && "cursor-grab active:cursor-grabbing",
@@ -126,6 +128,13 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
               {c.kind === "+1/+1" ? `+${c.count}` : c.kind === "-1/-1" ? `-${c.count}` : `${c.kind} ${c.count}`}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Token marker. */}
+      {card.isToken && (
+        <div className="absolute bottom-0 left-0 right-0 bg-accent-2/80 text-center text-[8px] font-bold uppercase tracking-wide text-white">
+          Token
         </div>
       )}
 
