@@ -1,5 +1,8 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/store/auth";
+import { Button } from "@/components/ui/Button";
 
 const navItems = [
   { to: "/lobby", label: "Lobby" },
@@ -8,6 +11,19 @@ const navItems = [
 
 export function AppLayout() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { user, loading, fetchMe, logout } = useAuth();
+
+  // Bootstrap the session once on mount.
+  useEffect(() => {
+    void fetchMe();
+  }, [fetchMe]);
+
+  async function onLogout() {
+    await logout();
+    navigate("/");
+  }
+
   return (
     <div className="min-h-full flex flex-col">
       <header className="border-b border-border bg-surface/80 backdrop-blur sticky top-0 z-10">
@@ -31,7 +47,29 @@ export function AppLayout() {
               </Link>
             ))}
           </nav>
-          <div className="ml-auto" id="nav-auth-slot" />
+          <div className="ml-auto flex items-center gap-2">
+            {loading ? null : user ? (
+              <>
+                <span className="text-sm text-muted">
+                  Signed in as <span className="text-white">{user.username}</span>
+                </span>
+                <Button size="sm" variant="outline" onClick={onLogout}>
+                  Log out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button size="sm" variant="ghost">
+                    Log in
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button size="sm">Sign up</Button>
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       </header>
       <main className="flex-1 mx-auto w-full max-w-6xl px-4 py-6">

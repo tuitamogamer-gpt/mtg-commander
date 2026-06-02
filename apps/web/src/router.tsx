@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
+import { RequireAuth } from "./components/RequireAuth";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -15,9 +16,30 @@ export const router = createBrowserRouter([
       { path: "/", element: <LandingPage /> },
       { path: "/login", element: <LoginPage /> },
       { path: "/register", element: <RegisterPage /> },
-      { path: "/lobby", element: <LobbyListPage /> },
-      { path: "/lobby/:roomId", element: <LobbyRoomPage /> },
-      { path: "/decks", element: <DecksPage /> },
+      {
+        path: "/lobby",
+        element: (
+          <RequireAuth>
+            <LobbyListPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/lobby/:roomId",
+        element: (
+          <RequireAuth>
+            <LobbyRoomPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "/decks",
+        element: (
+          <RequireAuth>
+            <DecksPage />
+          </RequireAuth>
+        ),
+      },
     ],
   },
   // Game runs full-screen without the standard chrome.

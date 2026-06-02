@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import { config } from "./config.js";
+import { registerRoutes } from "./routes/index.js";
 
 /**
  * Build the Fastify app with shared plugins and routes registered.
@@ -32,6 +33,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     time: new Date().toISOString(),
     env: config.nodeEnv,
   }));
+
+  await registerRoutes(app);
 
   return app;
 }
