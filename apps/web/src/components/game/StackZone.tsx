@@ -32,7 +32,7 @@ export function StackZone({ state, readOnly = false, act }: Props) {
     <Droppable
       id="stack"
       className={cn(
-        "w-44 shrink-0 rounded-lg border p-2 space-y-2 overflow-y-auto",
+        "w-full lg:w-44 lg:shrink-0 max-h-44 lg:max-h-none rounded-lg border p-2 space-y-2 overflow-y-auto",
         stack.length > 0 ? "border-accent/60 bg-accent/5" : "border-dashed border-border bg-bg/40"
       )}
     >

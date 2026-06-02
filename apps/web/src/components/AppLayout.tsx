@@ -27,7 +27,7 @@ export function AppLayout() {
   return (
     <div className="min-h-full flex flex-col">
       <header className="border-b border-border bg-surface/80 backdrop-blur sticky top-0 z-10">
-        <div className="mx-auto max-w-6xl px-4 h-14 flex items-center gap-6">
+        <div className="mx-auto max-w-6xl px-4 h-14 flex items-center gap-3 sm:gap-6">
           <Link to="/" className="font-bold text-accent text-lg tracking-tight">
             MTG Commander
           </Link>
@@ -50,7 +50,7 @@ export function AppLayout() {
           <div className="ml-auto flex items-center gap-2">
             {loading ? null : user ? (
               <>
-                <span className="text-sm text-muted">
+                <span className="hidden sm:inline text-sm text-muted">
                   Signed in as <span className="text-white">{user.username}</span>
                 </span>
                 <Button size="sm" variant="outline" onClick={onLogout}>

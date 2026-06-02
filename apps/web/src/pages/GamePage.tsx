@@ -2,13 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   DndContext,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import type { BattlefieldRow, Zone } from "@mtgc/shared";
 import { useGame } from "@/store/game";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PhaseBar } from "@/components/game/PhaseBar";
@@ -35,9 +37,15 @@ export function GamePage() {
   const navigate = useNavigate();
   const { state, chat, error, connected, join, act, sendChat, leave } = useGame();
   const [chatText, setChatText] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Mouse drags immediately (small distance); touch waits briefly so a tap or a
+  // scroll isn't mistaken for a drag.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } })
+  );
 
   useEffect(() => {
     if (gameId) void join(gameId);
@@ -98,56 +106,77 @@ export function GamePage() {
         </div>
       )}
       {/* Header */}
-      <header className="border-b border-border bg-surface px-4 py-2 flex items-center gap-4">
+      <header className="border-b border-border bg-surface px-3 py-2 flex items-center gap-3 flex-wrap">
         <PhaseBar state={state} act={act} readOnly={isSpectator} />
         {isSpectator && (
           <span className="rounded bg-accent-2/20 px-2 py-0.5 text-xs text-accent-2 font-medium">
             👁 Spectating
           </span>
         )}
+        <Button
+          size="sm"
+          variant="secondary"
+          className="lg:hidden"
+          onClick={() => setSidebarOpen((o) => !o)}
+        >
+          ☰ Panel
+        </Button>
         <Button size="sm" variant="outline" onClick={() => navigate("/lobby")}>
           Leave
         </Button>
       </header>
 
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 relative">
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-          <div className="p-3">
-            <StackZone state={state} readOnly={isSpectator} act={act} />
-          </div>
-          <main className="flex-1 overflow-y-auto p-3 space-y-3">
-            {isSpectator ? (
-              // Spectator: every player shown read-only (hands/libraries hidden).
-              <div
-                className="grid gap-2"
-                style={{ gridTemplateColumns: `repeat(${Math.min(2, state.players.length)}, minmax(0, 1fr))` }}
-              >
-                {state.players.map((p) => (
-                  <OpponentPanel key={p.id} player={p} />
-                ))}
-              </div>
-            ) : (
-              <>
-                {/* Opponents */}
-                <div
-                  className="grid gap-2"
-                  style={{ gridTemplateColumns: `repeat(${Math.max(1, opponents.length)}, minmax(0, 1fr))` }}
-                >
-                  {opponents.map((p) => (
+          <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden">
+            <div className="p-2 lg:p-3 lg:shrink-0">
+              <StackZone state={state} readOnly={isSpectator} act={act} />
+            </div>
+            <main className="flex-1 lg:overflow-y-auto p-2 lg:p-3 space-y-3">
+              {isSpectator ? (
+                // Spectator: every player shown read-only (hands/libraries hidden).
+                <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
+                  {state.players.map((p) => (
                     <OpponentPanel key={p.id} player={p} />
                   ))}
                 </div>
+              ) : (
+                <>
+                  {/* Opponents */}
+                  <div className="grid gap-2 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                    {opponents.map((p) => (
+                      <OpponentPanel key={p.id} player={p} />
+                    ))}
+                  </div>
 
-                {/* Your board */}
-                {me && <SelfBoard player={me} libraryCount={me.zones.library.count} act={act} />}
-              </>
-            )}
-          </main>
+                  {/* Your board */}
+                  {me && <SelfBoard player={me} libraryCount={me.zones.library.count} act={act} />}
+                </>
+              )}
+            </main>
+          </div>
         </DndContext>
 
-        {/* Sidebar */}
-        <aside className="w-80 shrink-0 border-l border-border bg-surface/60 flex flex-col min-h-0">
+        {/* Mobile drawer backdrop */}
+        {sidebarOpen && (
+          <div className="lg:hidden fixed inset-0 z-20 bg-black/50" onClick={() => setSidebarOpen(false)} />
+        )}
+
+        {/* Sidebar (static on desktop, slide-in drawer on mobile) */}
+        <aside
+          className={cn(
+            "flex flex-col min-h-0 bg-surface border-border",
+            "fixed inset-y-0 right-0 z-30 w-80 max-w-[85vw] border-l transform transition-transform",
+            sidebarOpen ? "translate-x-0" : "translate-x-full",
+            "lg:static lg:translate-x-0 lg:max-w-none lg:bg-surface/60"
+          )}
+        >
           <div className="p-3 space-y-3 overflow-y-auto">
+            <div className="flex justify-end lg:hidden">
+              <Button size="sm" variant="ghost" onClick={() => setSidebarOpen(false)}>
+                ✕ Close
+              </Button>
+            </div>
             <section>
               <h3 className="text-xs uppercase tracking-wide text-muted mb-2">Players</h3>
               <LifeTracker players={state.players} viewerId={state.viewerId} act={act} />

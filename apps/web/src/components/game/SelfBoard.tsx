@@ -60,7 +60,7 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
   return (
     <div className="space-y-2">
       {/* Battlefield rows */}
-      <div className="grid grid-cols-[1fr_auto] gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-2">
         <div className="space-y-2">
           {(["lands", "creatures", "other"] as BattlefieldRow[]).map((row) => (
             <Droppable
@@ -77,7 +77,7 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
         </div>
 
         {/* Pile sidebar: library / graveyard / exile / command */}
-        <div className="flex flex-col gap-2 w-36">
+        <div className="flex flex-row flex-wrap lg:flex-col gap-2 w-full lg:w-36 [&>*]:flex-1 lg:[&>*]:flex-none [&>*]:min-w-[8rem]">
           <Pile label="Library" count={libraryCount}>
             <div className="flex flex-wrap gap-1">
               <Button size="sm" className="h-7 px-2 text-xs" onClick={() => act({ type: "draw", count: 1 })}>
