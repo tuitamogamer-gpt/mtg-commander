@@ -122,50 +122,60 @@ mtg-commander/
 
 ---
 
-## What works today
+## Features
 
-- **Auth** — register / login / me / logout with a JWT httpOnly cookie.
-- **Card proxy** — `GET /api/cards/:id` and `POST /api/cards/batch` with a 30-day
-  Scryfall cache; serves stale on upstream failure.
-- **Decks** — full CRUD, Commander-legality validation (advisory), color-identity
-  computation, **Moxfield import** by URL/id.
-- **Precon library** — all Commander precons seeded from MTGJSON; browse with
+**Accounts & decks**
+- Register / login / me / logout with a JWT httpOnly cookie (bcrypt-hashed).
+- Scryfall card proxy with a 30-day local cache (`/api/cards/:id`, `/batch`,
+  `/search`); serves stale on upstream failure.
+- Deck CRUD + advisory Commander-legality validation + color-identity computation.
+- **Moxfield import** by URL/id (clears Cloudflare via a curl-based fetch).
+- **Precon library** — every Commander precon seeded from MTGJSON; browse with
   search + color-identity + set filters; one-click clone into your decks.
-- **Lobby** — Socket.IO rooms: create/join/leave, deck selection, ready-up,
-  host-only start (2–4 players), table chat.
-- **Game (vertical slice)** — server-authoritative, synced table for 2–4 players:
-  - drag-and-drop between battlefield rows (lands/creatures/other), hand,
-    graveyard, exile, command;
-  - click to tap/untap, hover toolbar (+1/+1, −1/−1, to GY/exile, flip face-down);
-  - life tracker + Commander-damage matrix, poison, mana pool;
-  - draw / mill / shuffle / London mulligan, create token, custom counters;
-  - phase + turn indicator with pass-priority / next-phase / next-turn;
-  - stack visualization, game log, in-game chat;
-  - hidden hands/libraries enforced per viewer; reconnect-safe snapshots.
+- **Deck builder/editor** — Scryfall-backed search (name/type/oracle/color/CMC),
+  click-to-add, quantity & commander toggles, and a live validation panel
+  (100-card count, singleton, Commander **ban list**, commander legality, identity).
+
+**Lobby**
+- Socket.IO rooms: create/join/leave, deck selection, ready-up, host-only start
+  (2–4 players), per-table chat, and an "allow spectators" toggle.
+
+**Game table (server-authoritative, honor-system)**
+- Drag-and-drop between battlefield rows, hand, graveyard, exile, command, and the
+  shared **stack** (drop to cast; resolve/counter to the owner's zone).
+- Click to tap/untap, hover toolbar (+1/+1, −1/−1, to GY/exile, flip face-down).
+- Life tracker + Commander-damage matrix, poison, mana pool, custom counters,
+  monarch/initiative, tokens.
+- Draw / mill / shuffle; **scry** (drag-reorder + bottom), look-at-top, reveal,
+  and **search/tutor**.
+- Full **London mulligan** flow (keep / mulligan / bottom-N), with opponents'
+  mulligan counts shown.
+- Phase + turn bar (pass-priority / next-phase / next-turn, skipping absent seats).
+- **Reconnect** — auto re-join on socket reconnect; 5-minute grace with a
+  disconnect banner + countdown and a host "skip / restore" control.
+- **Spectator mode** — watch a table read-only with hidden hands/libraries and
+  tagged chat.
+- **Hover-zoom** large card preview anywhere; game log and in-game chat.
+- Hidden hands/libraries enforced per viewer; reconnect-safe DB snapshots.
+
+**Ops**
+- Responsive / mobile layout (drawer sidebar, touch drag-drop).
+- Docker + docker-compose (Postgres) deployment with health check — see
+  [Deployment](#deployment).
 
 ---
 
-## What remains (next iterations)
+## What remains (out of scope by design)
 
-These are deliberately deferred — the slice above is fully playable without them:
-
-- **Mulligan flow UI** — the London mulligan action exists; a guided
-  "keep N / bottom cards" wizard at game start does not.
-- **Reconnect UX** — snapshots persist and `game:join` reloads state, but there is
-  no automatic resume banner / spectator-to-seat handoff on the client yet.
-- **Spectator mode** — joining a game you're not seated in.
-- **Stack as a real zone** — currently the stack is a visual list of descriptions;
-  cards aren't physically moved onto it.
-- **Scry / surveil / "look at top N"** — `scry` is a no-op placeholder; library
-  contents are hidden, so a reveal-to-self flow is needed.
-- **Deck builder / editor UI** — decks are import-only; no manual card editing yet.
-- **Richer card interactions** — card preview on hover/zoom, double-faced flip,
-  attach/aura grouping, multi-select drag.
-- **Mobile/responsive layout** — desktop-first today.
-- **Production deployment** — dev setup only (swap SQLite → Postgres via the
-  Prisma datasource, set real `JWT_SECRET`, build + serve `apps/web/dist`).
-- **No rules enforcement by design** — layers, replacement effects, triggers, and
-  combat math remain the players' responsibility (honor system).
+- **No rules enforcement** — layers, replacement effects, triggered abilities, and
+  combat math are the players' responsibility (honor system, like Cockatrice).
+- **No AI opponent.**
+- **Spectator-to-seat handoff** mid-game, and richer card interactions
+  (double-faced flip art, aura/equipment attachment grouping, multi-select drag).
+- **Cross-provider migration history** — production uses `prisma db push` rather
+  than committed Postgres migrations.
+- The Docker setup is a starting point (authored, not run in CI) — see the note in
+  [Deployment](#deployment).
 
 ---
 
