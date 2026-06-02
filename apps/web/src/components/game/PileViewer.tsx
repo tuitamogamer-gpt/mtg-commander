@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import type { GameCard, GameAction, Zone } from "@mtgc/shared";
 import { GameCardView } from "./GameCardView";
 import { Button } from "@/components/ui/Button";
@@ -14,10 +15,19 @@ interface Props {
 /** Modal listing the contents of a zone, with quick "move to…" buttons. */
 export function PileViewer({ title, zone, cards, owned, act, onClose }: Props) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+    >
+      <motion.div
         className="max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-lg border border-border bg-surface p-4"
         onClick={(e) => e.stopPropagation()}
+        initial={{ scale: 0.96, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.15 }}
       >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">
@@ -44,8 +54,8 @@ export function PileViewer({ title, zone, cards, owned, act, onClose }: Props) {
             ))}
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

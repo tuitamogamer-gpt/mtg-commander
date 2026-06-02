@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/store/auth";
+import { useTheme } from "@/store/theme";
 import { Button } from "@/components/ui/Button";
 
 const navItems = [
@@ -13,6 +15,7 @@ export function AppLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, loading, fetchMe, logout } = useAuth();
+  const { theme, toggle } = useTheme();
 
   // Bootstrap the session once on mount.
   useEffect(() => {
@@ -48,6 +51,15 @@ export function AppLayout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={toggle}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              title="Toggle theme"
+            >
+              {theme === "dark" ? "☀" : "☾"}
+            </Button>
             {loading ? null : user ? (
               <>
                 <span className="hidden sm:inline text-sm text-muted">
@@ -73,7 +85,14 @@ export function AppLayout() {
         </div>
       </header>
       <main className="flex-1 mx-auto w-full max-w-6xl px-4 py-6">
-        <Outlet />
+        <motion.div
+          key={pathname}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18 }}
+        >
+          <Outlet />
+        </motion.div>
       </main>
     </div>
   );

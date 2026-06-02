@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Deck } from "@mtgc/shared";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ColorPips } from "@/components/ColorPips";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { decksApi, deckCardCount } from "@/lib/decks";
 import { ApiError } from "@/lib/api";
 
@@ -14,7 +17,6 @@ export function DecksPage() {
   const [loading, setLoading] = useState(true);
   const [moxId, setMoxId] = useState("");
   const [importing, setImporting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     setDecks(await decksApi.list());
@@ -28,25 +30,27 @@ export function DecksPage() {
   async function onImport() {
     if (!moxId.trim()) return;
     setImporting(true);
-    setError(null);
     try {
-      await decksApi.importMoxfield(moxId.trim());
+      const deck = await decksApi.importMoxfield(moxId.trim());
       setMoxId("");
       await refresh();
+      toast.success(`Imported "${deck.name}"`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Import failed");
+      toast.error(err instanceof ApiError ? err.message : "Import failed");
     } finally {
       setImporting(false);
     }
   }
 
-  async function onDelete(id: string) {
+  async function onDelete(id: string, name: string) {
     await decksApi.remove(id);
     setDecks((d) => d.filter((x) => x.id !== id));
+    toast.success(`Deleted "${name}"`);
   }
 
   async function onNewDeck() {
     const deck = await decksApi.create("New deck");
+    toast.success("Created a new deck");
     navigate(`/decks/${deck.id}/edit`);
   }
 
@@ -82,20 +86,25 @@ export function DecksPage() {
               {importing ? "Importing…" : "Import"}
             </Button>
           </div>
-          {error && <p className="text-sm text-danger">{error}</p>}
         </CardContent>
       </Card>
 
       {loading ? (
-        <p className="text-muted">Loading decks…</p>
+        <CardGridSkeleton count={4} />
       ) : decks.length === 0 ? (
-        <Card>
-          <CardContent>
-            <p className="text-muted text-sm">
-              No decks yet. Import one from Moxfield above, or browse the precon library.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon="🃏"
+          title="No decks yet"
+          description="Import a deck from Moxfield above, build one from scratch, or clone an official Commander precon."
+          action={
+            <div className="flex gap-2">
+              <Button onClick={onNewDeck}>New deck</Button>
+              <Link to="/precons">
+                <Button variant="outline">Browse precons</Button>
+              </Link>
+            </div>
+          }
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {decks.map((deck) => (
@@ -118,7 +127,7 @@ export function DecksPage() {
                       Edit
                     </Button>
                   </Link>
-                  <Button size="sm" variant="ghost" onClick={() => onDelete(deck.id)}>
+                  <Button size="sm" variant="ghost" onClick={() => onDelete(deck.id, deck.name)}>
                     Delete
                   </Button>
                 </div>

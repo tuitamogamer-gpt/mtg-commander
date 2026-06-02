@@ -23,7 +23,7 @@ function ResultTile({ card, onAdd }: { card: Card; onAdd: () => void }) {
       title={`Add ${card.name}`}
     >
       {img ? (
-        <img src={img} alt={card.name} className="w-full aspect-[5/7] object-cover" />
+        <img src={img} alt={card.name} loading="lazy" decoding="async" className="w-full aspect-[5/7] object-cover" />
       ) : (
         <div className="aspect-[5/7] flex items-center justify-center p-1 text-center text-[10px] text-muted bg-surface-2">
           {card.name}

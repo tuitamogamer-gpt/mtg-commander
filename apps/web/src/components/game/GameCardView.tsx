@@ -58,7 +58,15 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
             Face down
           </div>
         ) : img ? (
-          <img src={img} alt={card.name} className="h-full w-full object-cover" draggable={false} />
+          <img
+            src={img}
+            alt={card.name}
+            loading="lazy"
+            decoding="async"
+            draggable={false}
+            className="h-full w-full object-cover opacity-0 transition-opacity duration-300"
+            onLoad={(e) => e.currentTarget.classList.remove("opacity-0")}
+          />
         ) : (
           <div className="h-full w-full flex items-center justify-center p-1 text-center text-[10px] text-muted">
             {card.name}

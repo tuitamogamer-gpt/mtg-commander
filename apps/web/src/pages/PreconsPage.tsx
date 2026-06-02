@@ -4,7 +4,10 @@ import type { PreconListItem } from "@mtgc/shared";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { toast } from "sonner";
 import { ColorPips } from "@/components/ColorPips";
+import { CardGridSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { preconsApi } from "@/lib/precons";
 import { decksApi } from "@/lib/decks";
 import { ApiError } from "@/lib/api";
@@ -19,7 +22,6 @@ export function PreconsPage() {
   const [search, setSearch] = useState("");
   const [activeColors, setActiveColors] = useState<Set<string>>(new Set());
   const [importingId, setImportingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const colorsParam = useMemo(
     () => COLORS.filter((c) => activeColors.has(c)).join(""),
@@ -58,12 +60,12 @@ export function PreconsPage() {
 
   async function onImport(id: string) {
     setImportingId(id);
-    setError(null);
     try {
       const deck = await decksApi.importPrecon(id);
+      toast.success(`Added "${deck.name}" to your decks`);
       navigate("/decks", { state: { importedDeckId: deck.id } });
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Import failed");
+      toast.error(err instanceof ApiError ? err.message : "Import failed");
     } finally {
       setImportingId(null);
     }
@@ -107,12 +109,17 @@ export function PreconsPage() {
               </Button>
             )}
           </div>
-          {error && <p className="text-sm text-danger">{error}</p>}
         </CardContent>
       </Card>
 
       {loading ? (
-        <p className="text-muted">Loading…</p>
+        <CardGridSkeleton count={6} />
+      ) : precons.length === 0 ? (
+        <EmptyState
+          icon="🔍"
+          title="No precons match"
+          description="Try clearing the search or color filters."
+        />
       ) : (
         <>
           <p className="text-sm text-muted">{precons.length} decks</p>
