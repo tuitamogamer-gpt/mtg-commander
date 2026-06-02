@@ -1,0 +1,14 @@
+{
+  "name": "@mtgc/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"web dev not configured yet\"",
+    "build": "echo \"web build not configured yet\"",
+    "lint": "echo \"no lint\""
+  },
+  "dependencies": {
+    "@mtgc/shared": "workspace:*"
+  }
+}

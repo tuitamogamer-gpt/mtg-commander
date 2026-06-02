@@ -1,0 +1,14 @@
+{
+  "name": "@mtgc/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"server dev not configured yet\"",
+    "build": "echo \"server build not configured yet\"",
+    "lint": "echo \"no lint\""
+  },
+  "dependencies": {
+    "@mtgc/shared": "workspace:*"
+  }
+}
