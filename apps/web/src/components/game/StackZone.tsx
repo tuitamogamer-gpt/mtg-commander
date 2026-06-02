@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { GameAction, GameStateView, StackItem } from "@mtgc/shared";
 import { Droppable } from "./Droppable";
 import { useCards, cardImage } from "@/store/cards";
+import { useCardHover } from "@/lib/useCardHover";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -52,13 +53,7 @@ export function StackZone({ state, readOnly = false, act }: Props) {
               )}
             >
               <div className="flex gap-1.5">
-                {img ? (
-                  <img src={img} alt={card.name} className="h-16 w-12 rounded object-cover shrink-0" />
-                ) : (
-                  <div className="h-16 w-12 rounded bg-bg flex items-center justify-center text-[9px] text-muted text-center p-0.5 shrink-0">
-                    {card.faceDown ? "face down" : card.name}
-                  </div>
-                )}
+                <StackImg img={img} card={card} />
                 <div className="min-w-0 text-[11px]">
                   <div className="text-white truncate">{card.name}</div>
                   <div className="text-muted">by {controllerName(card.controllerId)}</div>
@@ -81,6 +76,17 @@ export function StackZone({ state, readOnly = false, act }: Props) {
         })
       )}
     </Droppable>
+  );
+}
+
+function StackImg({ img, card }: { img?: string; card: StackItem }) {
+  const hover = useCardHover(card.faceDown ? undefined : card.scryfallId);
+  return img ? (
+    <img {...hover} src={img} alt={card.name} className="h-16 w-12 rounded object-cover shrink-0" />
+  ) : (
+    <div className="h-16 w-12 rounded bg-bg flex items-center justify-center text-[9px] text-muted text-center p-0.5 shrink-0">
+      {card.faceDown ? "face down" : card.name}
+    </div>
   );
 }
 

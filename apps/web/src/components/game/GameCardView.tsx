@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import type { GameCard, Zone } from "@mtgc/shared";
 import { useCards, cardImage } from "@/store/cards";
+import { useCardHover } from "@/lib/useCardHover";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -27,6 +28,7 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
     data: { zone },
     disabled: !owned,
   });
+  const hover = useCardHover(card.faceDown ? undefined : card.scryfallId);
 
   const img = card.faceDown ? undefined : cardImage(data);
   const w = size === "sm" ? "w-16" : "w-24";
@@ -37,6 +39,7 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
       ref={setNodeRef}
       {...(owned ? listeners : {})}
       {...attributes}
+      {...hover}
       onClick={() => zone === "battlefield" && owned && onTap?.()}
       className={cn(
         "group relative shrink-0 rounded-md border border-border bg-surface-2 overflow-visible select-none",

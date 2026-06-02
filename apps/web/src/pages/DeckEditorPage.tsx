@@ -8,8 +8,33 @@ import { ColorPips } from "@/components/ColorPips";
 import { decksApi } from "@/lib/decks";
 import { cardsApi, buildScryfallQuery, type SearchFilters } from "@/lib/cards";
 import { useCards, cardImage } from "@/store/cards";
+import { useCardHover } from "@/lib/useCardHover";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
+
+function ResultTile({ card, onAdd }: { card: Card; onAdd: () => void }) {
+  const hover = useCardHover(card.scryfallId);
+  const img = cardImage(card);
+  return (
+    <button
+      {...hover}
+      onClick={onAdd}
+      className="rounded-md border border-border overflow-hidden hover:border-accent transition relative group"
+      title={`Add ${card.name}`}
+    >
+      {img ? (
+        <img src={img} alt={card.name} className="w-full aspect-[5/7] object-cover" />
+      ) : (
+        <div className="aspect-[5/7] flex items-center justify-center p-1 text-center text-[10px] text-muted bg-surface-2">
+          {card.name}
+        </div>
+      )}
+      <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50 text-white font-bold text-lg">
+        +
+      </span>
+    </button>
+  );
+}
 
 const BASICS = new Set(["Plains", "Island", "Swamp", "Mountain", "Forest", "Wastes"]);
 const WUBRG = ["W", "U", "B", "R", "G"];
@@ -232,28 +257,9 @@ export function DeckEditorPage() {
             </div>
 
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[28rem] overflow-y-auto">
-              {results.map((card) => {
-                const img = cardImage(card);
-                return (
-                  <button
-                    key={card.scryfallId}
-                    onClick={() => addCard(card)}
-                    className="rounded-md border border-border overflow-hidden hover:border-accent transition relative group"
-                    title={`Add ${card.name}`}
-                  >
-                    {img ? (
-                      <img src={img} alt={card.name} className="w-full aspect-[5/7] object-cover" />
-                    ) : (
-                      <div className="aspect-[5/7] flex items-center justify-center p-1 text-center text-[10px] text-muted bg-surface-2">
-                        {card.name}
-                      </div>
-                    )}
-                    <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50 text-white font-bold text-lg">
-                      +
-                    </span>
-                  </button>
-                );
-              })}
+              {results.map((card) => (
+                <ResultTile key={card.scryfallId} card={card} onAdd={() => addCard(card)} />
+              ))}
             </div>
           </CardContent>
         </UICard>

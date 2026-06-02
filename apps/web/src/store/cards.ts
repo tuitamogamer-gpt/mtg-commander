@@ -44,3 +44,16 @@ export function cardImage(card: Card | undefined): string | undefined {
     card.cardFaces?.[0]?.imageUris?.large
   );
 }
+
+/** Highest-resolution image for the zoom preview. */
+export function cardImageLarge(card: Card | undefined): string | undefined {
+  if (!card) return undefined;
+  return (
+    card.imageUris?.large ??
+    card.imageUris?.png ??
+    card.imageUris?.normal ??
+    card.cardFaces?.[0]?.imageUris?.large ??
+    card.cardFaces?.[0]?.imageUris?.png ??
+    card.cardFaces?.[0]?.imageUris?.normal
+  );
+}

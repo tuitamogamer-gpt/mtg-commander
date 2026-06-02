@@ -16,6 +16,7 @@ import { CSS } from "@dnd-kit/utilities";
 import type { GameAction, GameCard } from "@mtgc/shared";
 import { useGame } from "@/store/game";
 import { useCards, cardImage } from "@/store/cards";
+import { useCardHover } from "@/lib/useCardHover";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
@@ -189,6 +190,7 @@ function SortableScryCard({
 }) {
   const cards = useCards((s) => s.cards);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const hover = useCardHover(card?.scryfallId);
   const img = card ? cardImage(cards[card.scryfallId]) : undefined;
   return (
     <div
@@ -199,6 +201,7 @@ function SortableScryCard({
       <div
         {...attributes}
         {...listeners}
+        {...hover}
         className={cn(
           "relative w-24 h-[8.4rem] rounded-md border-2 overflow-hidden cursor-grab",
           isBottom ? "border-danger opacity-60" : "border-border"

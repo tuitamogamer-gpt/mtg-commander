@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { GameAction, GameCard, PlayerStateView } from "@mtgc/shared";
 import { useCards, cardImage } from "@/store/cards";
+import { useCardHover } from "@/lib/useCardHover";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -8,6 +9,48 @@ interface Props {
   me: PlayerStateView;
   players: PlayerStateView[];
   act: (a: GameAction) => void;
+}
+
+function MullCard({
+  card,
+  img,
+  isSel,
+  bottoming,
+  onToggle,
+}: {
+  card: GameCard;
+  img?: string;
+  isSel: boolean;
+  bottoming: boolean;
+  onToggle: () => void;
+}) {
+  const hover = useCardHover(card.scryfallId);
+  return (
+    <button
+      {...hover}
+      onClick={onToggle}
+      disabled={!bottoming}
+      className={cn(
+        "relative w-24 h-[8.4rem] rounded-md border-2 overflow-hidden transition",
+        bottoming ? "cursor-pointer" : "cursor-default",
+        isSel ? "border-danger scale-95" : "border-border"
+      )}
+      title={card.name}
+    >
+      {img ? (
+        <img src={img} alt={card.name} className="h-full w-full object-cover" />
+      ) : (
+        <div className="h-full w-full flex items-center justify-center p-1 text-center text-[10px] text-muted bg-surface-2">
+          {card.name}
+        </div>
+      )}
+      {isSel && (
+        <div className="absolute inset-0 bg-danger/30 flex items-center justify-center text-white font-bold text-xs">
+          ↓ bottom
+        </div>
+      )}
+    </button>
+  );
 }
 
 /**
@@ -81,36 +124,16 @@ export function MulliganOverlay({ me, players, act }: Props) {
         )}
 
         <div className="flex flex-wrap gap-2 justify-center min-h-[8.4rem]">
-          {hand.map((c) => {
-            const img = cardImage(cards[c.scryfallId]);
-            const isSel = selected.has(c.instanceId);
-            return (
-              <button
-                key={c.instanceId}
-                onClick={() => bottoming && toggle(c.instanceId)}
-                disabled={!bottoming}
-                className={cn(
-                  "relative w-24 h-[8.4rem] rounded-md border-2 overflow-hidden transition",
-                  bottoming ? "cursor-pointer" : "cursor-default",
-                  isSel ? "border-danger scale-95" : "border-border"
-                )}
-                title={c.name}
-              >
-                {img ? (
-                  <img src={img} alt={c.name} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center p-1 text-center text-[10px] text-muted bg-surface-2">
-                    {c.name}
-                  </div>
-                )}
-                {isSel && (
-                  <div className="absolute inset-0 bg-danger/30 flex items-center justify-center text-white font-bold text-xs">
-                    ↓ bottom
-                  </div>
-                )}
-              </button>
-            );
-          })}
+          {hand.map((c) => (
+            <MullCard
+              key={c.instanceId}
+              card={c}
+              img={cardImage(cards[c.scryfallId])}
+              isSel={selected.has(c.instanceId)}
+              bottoming={bottoming}
+              onToggle={() => bottoming && toggle(c.instanceId)}
+            />
+          ))}
         </div>
 
         <div className="flex items-center justify-between">
