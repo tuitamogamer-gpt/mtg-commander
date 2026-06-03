@@ -25,11 +25,12 @@ export function verifyToken(token: string): JwtPayload | null {
   }
 }
 
-/** Cookie options for the auth token. httpOnly so JS can't read it. */
+/** Cookie options for the auth token. httpOnly so JS can't read it. A SameSite=
+ * None cookie (cross-origin deploy) must also be Secure. */
 export const cookieOptions = {
   httpOnly: true,
-  sameSite: "lax" as const,
-  secure: config.isProd,
+  sameSite: config.cookieSameSite,
+  secure: config.isProd || config.cookieSameSite === "none",
   path: "/",
   maxAge: 30 * 24 * 60 * 60, // seconds
   ...(config.cookieDomain ? { domain: config.cookieDomain } : {}),

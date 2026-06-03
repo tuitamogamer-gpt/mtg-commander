@@ -9,23 +9,24 @@ import type {
 export type LobbySocket = Socket<LobbyServerToClient, LobbyClientToServer>;
 export type GameSocket = Socket<GameServerToClient, GameClientToServer>;
 
-// Socket.IO connects to the same origin; Vite proxies /socket.io to the backend,
-// so the httpOnly auth cookie is sent automatically. We keep one socket per
-// namespace as a module singleton, reused across route changes.
+// Same-origin in dev (Vite proxies /socket.io). In a split-origin deploy, point
+// at the API origin via VITE_API_URL. One socket per namespace, reused across
+// routes; withCredentials sends the auth cookie (cross-site needs SameSite=None).
+const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 let lobbySocket: LobbySocket | null = null;
 let gameSocket: GameSocket | null = null;
 
 export function getLobbySocket(): LobbySocket {
   if (!lobbySocket) {
-    lobbySocket = io("/lobby", { withCredentials: true, transports: ["websocket", "polling"] });
+    lobbySocket = io(`${API_BASE}/lobby`, { withCredentials: true, transports: ["websocket", "polling"] });
   }
   return lobbySocket;
 }
 
 export function getGameSocket(): GameSocket {
   if (!gameSocket) {
-    gameSocket = io("/game", { withCredentials: true, transports: ["websocket", "polling"] });
+    gameSocket = io(`${API_BASE}/game`, { withCredentials: true, transports: ["websocket", "polling"] });
   }
   return gameSocket;
 }

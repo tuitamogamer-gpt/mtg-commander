@@ -230,6 +230,25 @@ the mirrored `prisma/postgres.prisma`. Keep the two model blocks in sync. Becaus
 the providers differ, production uses `prisma db push` (schema sync) rather than
 the SQLite migration history.
 
+### Split-origin: Vercel (web) + Railway (server)
+
+Vercel can't host the realtime server (Socket.IO needs persistent connections),
+so the SPA goes on Vercel and the API on Railway. The client reads the API origin
+from `VITE_API_URL`, and the server allows cross-site cookies.
+
+1. **Railway (server + Postgres):** new project from this repo; it builds
+   `apps/server/Dockerfile` (see `railway.json`). Add the Postgres plugin
+   (injects `DATABASE_URL`). Set vars: `JWT_SECRET`, `NODE_ENV=production`,
+   `COOKIE_SAMESITE=none`, and `CLIENT_ORIGIN=<your Vercel URL>`. Note the public
+   server URL (e.g. `https://…up.railway.app`).
+2. **Vercel (web):** import the repo (config in `vercel.json`). Set build env
+   `VITE_API_URL=<your Railway server URL>`. Deploy; note the Vercel URL.
+3. Set Railway's `CLIENT_ORIGIN` to that Vercel URL and redeploy. Seed precons
+   once: `railway run pnpm db:seed:precons` (or a one-off shell).
+
+Because cookies are cross-site here they're sent `SameSite=None; Secure` — both
+sides must be HTTPS (Vercel/Railway are).
+
 ### Other hosts
 
 - **Fly.io** — `fly launch` for the server (set `JWT_SECRET`, `DATABASE_URL`,

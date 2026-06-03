@@ -20,6 +20,9 @@ export const config = {
   /** Optional cookie Domain attribute (e.g. ".example.com") for cross-subdomain
    * auth in production. Unset = host-only cookie (correct for localhost). */
   cookieDomain: process.env.COOKIE_DOMAIN || undefined,
+  /** Cookie SameSite. Use "none" for a split-origin deploy (web on a different
+   * domain than the API, e.g. Vercel + Railway) — requires Secure (HTTPS). */
+  cookieSameSite: (process.env.COOKIE_SAMESITE as "lax" | "none" | "strict") || "lax",
   /** Card cache time-to-live in milliseconds (30 days). */
   cardCacheTtlMs: 30 * 24 * 60 * 60 * 1000,
 } as const;

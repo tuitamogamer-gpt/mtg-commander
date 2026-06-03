@@ -1,5 +1,8 @@
-// Thin fetch wrapper. All requests are same-origin (Vite proxies /api to the
-// backend) and send cookies, so the httpOnly JWT rides along automatically.
+// Thin fetch wrapper. In dev, requests are same-origin (Vite proxies /api to the
+// backend). For a split-origin deploy (web on Vercel, API on Railway) set
+// VITE_API_URL to the API origin; requests still send cookies (credentials:
+// include) so the httpOnly JWT rides along cross-site.
+export const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
 export class ApiError extends Error {
   constructor(
@@ -12,7 +15,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method,
     credentials: "include",
     headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
