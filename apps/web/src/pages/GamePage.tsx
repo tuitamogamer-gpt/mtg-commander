@@ -11,6 +11,7 @@ import {
 import type { BattlefieldRow, GameAction, Zone } from "@mtgc/shared";
 import { isEliminated } from "@mtgc/shared";
 import { useGame } from "@/store/game";
+import { useFocus } from "@/store/focus";
 import { useSettings } from "@/store/settings";
 import { playCue } from "@/lib/sound";
 import { cn } from "@/lib/utils";
@@ -87,16 +88,40 @@ export function GamePage() {
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (!me) return; // spectators have no shortcuts
-      switch (e.key.toLowerCase()) {
+      const key = e.key.toLowerCase();
+
+      // If the cursor is over one of your own cards, the keys act on THAT card
+      // (cast/tap/move/counters) — no clicking needed.
+      const focus = useFocus.getState().card;
+      if (focus && focus.owned) {
+        const id = focus.instanceId;
+        switch (key) {
+          case "c": act({ type: "add_to_stack", instanceId: id }); return;
+          case "t": act({ type: "tap", instanceId: id, tapped: !focus.tapped }); return;
+          case "g": act({ type: "move_card", instanceId: id, to: "graveyard" }); return;
+          case "x": act({ type: "move_card", instanceId: id, to: "exile" }); return;
+          case "b": act({ type: "move_card", instanceId: id, to: "battlefield", toRow: "other" }); return;
+          case "h": act({ type: "move_card", instanceId: id, to: "hand" }); return;
+          case "+":
+          case "=": act({ type: "add_counter", instanceId: id, kind: "+1/+1", delta: 1 }); return;
+          case "-":
+          case "_": act({ type: "add_counter", instanceId: id, kind: "-1/-1", delta: 1 }); return;
+          default: break; // fall through to global keys
+        }
+      }
+
+      switch (key) {
         case "d": act({ type: "draw", count: 1 }); break;
         case "u": act({ type: "untap_all" }); break;
         case "s": act({ type: "shuffle" }); break;
-        case "e": act({ type: "next_phase" }); break;
-        case "t": act({ type: "next_turn" }); break;
+        case "p": act({ type: "pass_priority" }); break;
         case "m": if (!me.keptHand) act({ type: "mulligan" }); break;
         case " ":
           e.preventDefault();
-          act({ type: "pass_priority" });
+          act({ type: "next_phase" }); // Space = advance phase (most common)
+          break;
+        case "enter":
+          act({ type: "next_turn" }); // Enter = end the turn
           break;
         case "f":
           if (document.fullscreenElement) void document.exitFullscreen();
@@ -299,11 +324,20 @@ export function GamePage() {
               </label>
               <details className="text-xs text-muted">
                 <summary className="cursor-pointer hover:text-white">Keyboard shortcuts</summary>
-                <ul className="mt-1 space-y-0.5 pl-1">
-                  <li><kbd>D</kbd> draw · <kbd>U</kbd> untap all · <kbd>S</kbd> shuffle</li>
-                  <li><kbd>Space</kbd> pass priority · <kbd>E</kbd> next phase · <kbd>T</kbd> next turn</li>
-                  <li><kbd>M</kbd> mulligan · <kbd>Ctrl+Z</kbd> undo · <kbd>F</kbd> fullscreen</li>
-                </ul>
+                <div className="mt-1 space-y-1 pl-1">
+                  <div className="text-white/80">Hovering a card:</div>
+                  <ul className="space-y-0.5 pl-1">
+                    <li><kbd>C</kbd> cast · <kbd>T</kbd> tap · <kbd>+</kbd>/<kbd>-</kbd> counter</li>
+                    <li><kbd>G</kbd> graveyard · <kbd>X</kbd> exile · <kbd>H</kbd> hand · <kbd>B</kbd> battlefield</li>
+                  </ul>
+                  <div className="text-white/80 pt-1">Turn:</div>
+                  <ul className="space-y-0.5 pl-1">
+                    <li><kbd>Space</kbd> next phase · <kbd>Enter</kbd> next turn · <kbd>P</kbd> pass priority</li>
+                    <li>(or click a phase in the bar to jump to it)</li>
+                    <li><kbd>D</kbd> draw · <kbd>U</kbd> untap all · <kbd>S</kbd> shuffle · <kbd>M</kbd> mulligan</li>
+                    <li><kbd>Ctrl+Z</kbd> undo · <kbd>F</kbd> fullscreen</li>
+                  </ul>
+                </div>
               </details>
             </section>
           </div>

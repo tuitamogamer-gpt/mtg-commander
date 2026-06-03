@@ -337,6 +337,13 @@ export function applyAction(
       break;
     }
 
+    case "set_phase": {
+      state.phase = action.phase;
+      state.priorityPlayerId = state.players[state.activePlayerIndex]?.id ?? null;
+      logs.push(`Phase: ${PHASE_LABELS[action.phase]}.`);
+      break;
+    }
+
     case "next_turn": {
       // Advance to the next non-skipped seat (guard against everyone skipped).
       let next = state.activePlayerIndex;

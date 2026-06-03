@@ -22,14 +22,17 @@ export function useCardHover(scryfallId?: string | null) {
     };
   }, [hide]);
 
-  if (!scryfallId) return {};
-
+  // Stable handler shape (no-ops when disabled) so callers can always spread or
+  // compose them without union-narrowing.
   const onMouseEnter = (e: MouseEvent) => {
+    if (!scryfallId) return;
     const { clientX, clientY } = e;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => show(scryfallId, clientX, clientY), DELAY_MS);
   };
-  const onMouseMove = (e: MouseEvent) => move(e.clientX, e.clientY);
+  const onMouseMove = (e: MouseEvent) => {
+    if (scryfallId) move(e.clientX, e.clientY);
+  };
   const onMouseLeave = () => {
     if (timer.current) clearTimeout(timer.current);
     hide();

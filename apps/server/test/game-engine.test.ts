@@ -160,6 +160,14 @@ describe("applyAction", () => {
     expect(p1(s).zones.graveyard.find((c) => c.instanceId === token.instanceId)).toBeUndefined();
   });
 
+  it("jumps directly to a phase via set_phase", () => {
+    const s = fresh();
+    apply(s, "p1", { type: "set_phase", phase: "combat_attackers" });
+    expect(s.phase).toBe("combat_attackers");
+    apply(s, "p1", { type: "set_phase", phase: "main2" });
+    expect(s.phase).toBe("main2");
+  });
+
   it("advances phases and turns, skipping skipped seats", () => {
     const s = fresh();
     const startPhase = s.phase;

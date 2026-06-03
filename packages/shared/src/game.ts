@@ -241,6 +241,7 @@ export type GameAction =
   | { type: "resolve_stack_item"; instanceId: string; to: Zone; toRow?: BattlefieldRow } // resolve/counter
   | { type: "pass_priority" }
   | { type: "next_phase" }
+  | { type: "set_phase"; phase: Phase } // jump directly to a phase
   | { type: "next_turn" }
   | { type: "untap_all" }
   | { type: "reveal_card"; instanceId: string }

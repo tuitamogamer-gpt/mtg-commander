@@ -3,6 +3,7 @@ import { useDraggable } from "@dnd-kit/core";
 import type { GameCard, Zone } from "@mtgc/shared";
 import { useCards, cardImage } from "@/store/cards";
 import { useCardHover } from "@/lib/useCardHover";
+import { useFocus } from "@/store/focus";
 import { cn } from "@/lib/utils";
 
 export type CardActionKind =
@@ -64,6 +65,22 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
     disabled: !owned,
   });
   const hover = useCardHover(card.faceDown ? undefined : card.scryfallId);
+  const setFocus = useFocus((s) => s.setCard);
+  const clearFocus = useFocus((s) => s.clearCard);
+
+  // Track this card as "focused" while the cursor is over it (for shortcuts).
+  const focusHandlers = {
+    onMouseEnter: () =>
+      setFocus({
+        instanceId: card.instanceId,
+        scryfallId: card.scryfallId,
+        owned,
+        zone,
+        tapped: card.tapped,
+        faceDown: card.faceDown,
+      }),
+    onMouseLeave: () => clearFocus(card.instanceId),
+  };
 
   const img = card.faceDown ? undefined : cardImage(data);
   const w = size === "sm" ? "w-16" : "w-24";
@@ -74,7 +91,15 @@ export function GameCardView({ card, zone, owned, size = "md", onTap, onAction }
       ref={setNodeRef}
       {...(owned ? listeners : {})}
       {...attributes}
-      {...hover}
+      onMouseEnter={(e) => {
+        hover.onMouseEnter(e);
+        focusHandlers.onMouseEnter();
+      }}
+      onMouseMove={hover.onMouseMove}
+      onMouseLeave={() => {
+        hover.onMouseLeave();
+        focusHandlers.onMouseLeave();
+      }}
       onClick={() => zone === "battlefield" && owned && onTap?.()}
       onContextMenu={(e) => {
         if (!owned || !onAction) return;

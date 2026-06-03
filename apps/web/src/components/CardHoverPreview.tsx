@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { useHover } from "@/store/hover";
 import { useCards, cardImageLarge } from "@/store/cards";
 
-const W = 280;
-const H = 390;
-const OFFSET = 24;
+const W = 240;
+const H = 336;
+const MARGIN = 12;
 
 /** Single global overlay that shows a large card image near the cursor while
  * hovering (after a short delay). Mounted once at the app root. */
@@ -28,11 +28,12 @@ export function CardHoverPreview() {
   const img = cardImageLarge(card);
   if (!img) return null;
 
-  // Prefer the right of the cursor; flip left if it would overflow. Clamp vertically.
+  // Pin to the screen edge OPPOSITE the cursor so the preview never covers the
+  // card you're hovering (and its action toolbar / context menu stay visible).
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const left = x + OFFSET + W > vw ? Math.max(8, x - OFFSET - W) : x + OFFSET;
-  const top = Math.min(Math.max(8, y - H / 2), vh - H - 8);
+  const left = x < vw / 2 ? vw - W - MARGIN : MARGIN;
+  const top = Math.min(Math.max(MARGIN, y - H / 2), vh - H - MARGIN);
 
   return (
     <div

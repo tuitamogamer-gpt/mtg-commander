@@ -46,15 +46,21 @@ export function PhaseBar({
 
       <div className="flex items-center gap-1 overflow-x-auto">
         {PHASE_ORDER.map((ph) => (
-          <span
+          <button
             key={ph}
+            onClick={() => !readOnly && act({ type: "set_phase", phase: ph })}
+            disabled={readOnly}
+            title={readOnly ? undefined : `Jump to ${PHASE_LABELS[ph]}`}
             className={cn(
-              "text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap",
-              ph === state.phase ? "bg-accent text-black font-semibold" : "text-muted"
+              "text-[11px] px-1.5 py-0.5 rounded whitespace-nowrap transition-colors",
+              ph === state.phase
+                ? "bg-accent text-black font-semibold"
+                : "text-muted hover:text-white hover:bg-surface-2",
+              readOnly && "cursor-default"
             )}
           >
             {PHASE_LABELS[ph]}
-          </span>
+          </button>
         ))}
       </div>
 
