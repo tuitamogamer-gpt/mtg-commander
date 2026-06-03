@@ -27,7 +27,8 @@ async function dismissOnboarding(page: Page) {
 
 async function importFirstPrecon(page: Page) {
   await page.goto("/precons");
-  const importBtn = page.getByRole("button", { name: /import to my decks/i }).first();
+  // Precon tiles are art buttons titled "Add <deck name>".
+  const importBtn = page.getByTitle(/^Add /).first();
   await importBtn.click();
   await expect(page).toHaveURL(/\/decks/);
 }
