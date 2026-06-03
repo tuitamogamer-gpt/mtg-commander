@@ -10,10 +10,13 @@ import { CardGridSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { preconsApi } from "@/lib/precons";
 import { decksApi } from "@/lib/decks";
+import { cardsApi } from "@/lib/cards";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const COLORS = ["W", "U", "B", "R", "G"] as const;
+
+const firstCommander = (commanders: string) => commanders.split(",")[0]?.trim() ?? "";
 
 export function PreconsPage() {
   const navigate = useNavigate();
@@ -22,6 +25,8 @@ export function PreconsPage() {
   const [search, setSearch] = useState("");
   const [activeColors, setActiveColors] = useState<Set<string>>(new Set());
   const [importingId, setImportingId] = useState<string | null>(null);
+  // Commander name (lowercased) → art-crop image, for the deck-tile banners.
+  const [art, setArt] = useState<Record<string, string>>({});
 
   const colorsParam = useMemo(
     () => COLORS.filter((c) => activeColors.has(c)).join(""),
@@ -48,6 +53,28 @@ export function PreconsPage() {
       clearTimeout(t);
     };
   }, [search, colorsParam]);
+
+  // Fetch commander art for the shown precons (batched, names we don't have yet).
+  useEffect(() => {
+    const names = [...new Set(precons.map((p) => firstCommander(p.commanders)).filter(Boolean))];
+    const missing = names.filter((n) => !(n.toLowerCase() in art));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void cardsApi.byNames(missing).then(({ cards }) => {
+      if (cancelled) return;
+      setArt((prev) => {
+        const next = { ...prev };
+        for (const c of cards) {
+          const url = c.imageUris?.art_crop ?? c.cardFaces?.[0]?.imageUris?.art_crop;
+          if (url) next[c.name.toLowerCase()] = url;
+        }
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [precons, art]);
 
   function toggleColor(c: string) {
     setActiveColors((prev) => {
@@ -124,26 +151,47 @@ export function PreconsPage() {
         <>
           <p className="text-sm text-muted">{precons.length} decks</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {precons.map((p) => (
-              <Card key={p.id}>
-                <CardContent className="space-y-2">
-                  <div className="font-semibold text-white">{p.name}</div>
-                  <div className="text-sm text-muted">⌘ {p.commanders}</div>
-                  <div className="flex items-center justify-between pt-1">
+            {precons.map((p) => {
+              const cropUrl = art[firstCommander(p.commanders).toLowerCase()];
+              return (
+                <Card key={p.id} className="overflow-hidden flex flex-col">
+                  {/* Commander art banner (click to add). */}
+                  <button
+                    className="group relative block h-28 w-full overflow-hidden bg-surface-2 text-left"
+                    onClick={() => onImport(p.id)}
+                    disabled={importingId === p.id}
+                    title={`Add ${p.name}`}
+                  >
+                    {cropUrl ? (
+                      <img
+                        src={cropUrl}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center text-muted text-xs">
+                        {firstCommander(p.commanders) || p.name}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                    <div className="absolute bottom-1.5 left-2 right-2">
+                      <div className="font-semibold text-white text-sm leading-tight truncate drop-shadow">
+                        {p.name}
+                      </div>
+                      <div className="text-[11px] text-zinc-200 truncate drop-shadow">⌘ {p.commanders}</div>
+                    </div>
+                    <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-accent/20 font-semibold text-white">
+                      {importingId === p.id ? "Adding…" : "+ Add to my decks"}
+                    </span>
+                  </button>
+                  <CardContent className="flex items-center justify-between py-2">
                     <ColorPips identity={p.colorIdentity} />
                     <span className="text-xs text-muted uppercase">{p.setCode}</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="w-full mt-2"
-                    disabled={importingId === p.id}
-                    onClick={() => onImport(p.id)}
-                  >
-                    {importingId === p.id ? "Importing…" : "Import to my decks"}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </>
       )}
