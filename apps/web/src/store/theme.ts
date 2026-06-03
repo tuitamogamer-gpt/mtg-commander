@@ -1,43 +1,19 @@
 import { create } from "zustand";
 
-export type Theme = "dark" | "light";
-
-function initial(): Theme {
-  if (typeof document !== "undefined" && document.documentElement.classList.contains("light")) {
-    return "light";
-  }
-  return "dark";
-}
-
-function apply(theme: Theme) {
-  const root = document.documentElement;
-  root.classList.toggle("light", theme === "light");
-  try {
-    localStorage.setItem("mtgc-theme", theme);
-  } catch {
-    /* ignore */
-  }
-}
+// The UI is dark-first; we ship a single dark theme plus an optional high-contrast
+// boost. (A full light theme needs a semantic-color refactor — out of scope.)
 
 function initialContrast(): boolean {
   return typeof document !== "undefined" && document.documentElement.classList.contains("contrast");
 }
 
 interface ThemeState {
-  theme: Theme;
   highContrast: boolean;
-  toggle: () => void;
   toggleContrast: () => void;
 }
 
 export const useTheme = create<ThemeState>((set, get) => ({
-  theme: initial(),
   highContrast: initialContrast(),
-  toggle: () => {
-    const next: Theme = get().theme === "dark" ? "light" : "dark";
-    apply(next);
-    set({ theme: next });
-  },
   toggleContrast: () => {
     const next = !get().highContrast;
     document.documentElement.classList.toggle("contrast", next);

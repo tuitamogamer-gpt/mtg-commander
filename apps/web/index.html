@@ -6,12 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MTG Commander</title>
     <script>
-      // Apply the saved/system theme before paint to avoid a flash.
+      // Dark-only theme (the UI is dark-first). High-contrast is opt-in.
       (function () {
         try {
-          var t = localStorage.getItem("mtgc-theme");
-          if (!t) t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-          if (t === "light") document.documentElement.classList.add("light");
           if (localStorage.getItem("mtgc-contrast") === "1") document.documentElement.classList.add("contrast");
         } catch (e) {}
       })();

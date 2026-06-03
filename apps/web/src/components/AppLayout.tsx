@@ -17,7 +17,7 @@ export function AppLayout() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { user, loading, fetchMe, logout } = useAuth();
-  const { theme, toggle, highContrast, toggleContrast } = useTheme();
+  const { highContrast, toggleContrast } = useTheme();
 
   // Bootstrap the session once on mount.
   useEffect(() => {
@@ -53,15 +53,6 @@ export function AppLayout() {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={toggle}
-              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
-              title="Toggle theme"
-            >
-              {theme === "dark" ? "☀" : "☾"}
-            </Button>
             <Button
               size="icon"
               variant="ghost"

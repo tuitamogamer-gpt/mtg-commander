@@ -23,29 +23,11 @@
   color-scheme: dark;
 }
 
-/* Light theme — toggled by adding `.light` to <html>. */
-html.light {
-  color-scheme: light;
-  --color-bg: #f1f4fb;
-  --color-surface: #ffffff;
-  --color-surface-2: #eef1f8;
-  --color-border: #d4dae8;
-  --color-muted: #5b6b86;
-  --color-text: #18213a;
-  --color-accent: #d97706;
-  --color-accent-2: #4f46e5;
-}
-
-/* High-contrast mode — brighter text, stronger borders, no dim muted text. */
+/* High-contrast mode — brighter text + stronger borders (dark theme only). */
 html.contrast {
   --color-border: #6b7aa3;
   --color-muted: #c3ccdf;
   --color-text: #ffffff;
-}
-html.contrast.light {
-  --color-border: #475569;
-  --color-muted: #1e293b;
-  --color-text: #000000;
 }
 html.contrast * {
   border-color: var(--color-border);
