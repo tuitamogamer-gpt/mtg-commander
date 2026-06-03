@@ -41,16 +41,34 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+  /* Subtle depth: a couple of faint radial glows over the base colour. */
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(900px circle at 12% -10%, color-mix(in srgb, var(--color-accent-2) 14%, transparent), transparent 45%),
+    radial-gradient(1000px circle at 100% 0%, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 40%);
+  background-attachment: fixed;
 }
 
 h1, h2, h3 {
   line-height: 1.2;
   letter-spacing: -0.01em;
+}
+
+kbd {
+  display: inline-block;
+  padding: 0 0.35em;
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
 }
 
 /* Thin custom scrollbars so dense zones (library, log) stay readable. */

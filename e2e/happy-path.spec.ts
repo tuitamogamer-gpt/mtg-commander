@@ -65,7 +65,8 @@ test("two players play a turn", async ({ browser }) => {
 
   // Keep the opening hand, then draw and pass the turn.
   await host.getByRole("button", { name: /keep hand/i }).click();
-  await host.getByRole("button", { name: /^Draw$/ }).click();
+  // Scope to the board <main> — the header phase bar also has a "Draw" step button.
+  await host.getByRole("main").getByRole("button", { name: /^Draw$/ }).click();
   await host.getByRole("button", { name: /next turn/i }).click();
 
   // The turn indicator should advance.

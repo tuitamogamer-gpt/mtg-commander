@@ -97,10 +97,14 @@ export function SelfBoard({ player, libraryCount, act }: Props) {
             <Droppable
               key={row}
               id={`bf:${row}`}
-              className="min-h-[5rem] rounded-md border border-dashed border-border bg-bg/40 p-1.5"
+              className="min-h-[6rem] rounded-lg border border-dashed border-border bg-gradient-to-b from-surface/40 to-bg/30 p-2"
             >
-              <div className="text-[10px] uppercase tracking-wide text-muted mb-1">{ROW_LABELS[row]}</div>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-muted font-medium">{ROW_LABELS[row]}</span>
+                <span className="text-[10px] text-muted/60">{byRow(player.zones.battlefield, row).length || ""}</span>
+                <span className="flex-1 h-px bg-border/60" />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
                 {byRow(player.zones.battlefield, row).map((c) => renderCard(c, "battlefield"))}
               </div>
             </Droppable>
