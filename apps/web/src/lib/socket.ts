@@ -30,6 +30,24 @@ export function getGameSocket(): GameSocket {
   return gameSocket;
 }
 
+/**
+ * Tear down both sockets so the next use re-handshakes with the current auth
+ * cookie. Must be called on login/logout — otherwise a socket can stay
+ * authenticated as a previous user (and e.g. reject "your" decks).
+ */
+export function resetSockets(): void {
+  if (lobbySocket) {
+    lobbySocket.removeAllListeners();
+    lobbySocket.disconnect();
+    lobbySocket = null;
+  }
+  if (gameSocket) {
+    gameSocket.removeAllListeners();
+    gameSocket.disconnect();
+    gameSocket = null;
+  }
+}
+
 /** Promisify an emit-with-ack call returning the shared SocketResult shape. */
 export function emitAck<T>(
   socket: Socket,

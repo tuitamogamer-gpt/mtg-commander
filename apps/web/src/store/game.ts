@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ChatMessage, GameAction, GameCard, GameStateView } from "@mtgc/shared";
-import { getGameSocket, emitAck } from "@/lib/socket";
+import { getGameSocket, emitAck, type GameSocket } from "@/lib/socket";
 
 interface GameStore {
   state: GameStateView | null;
@@ -18,7 +18,7 @@ interface GameStore {
   leave: () => void;
 }
 
-let wired = false;
+let wiredSocket: GameSocket | null = null;
 
 export const useGame = create<GameStore>((set, get) => ({
   state: null,
@@ -29,8 +29,8 @@ export const useGame = create<GameStore>((set, get) => ({
 
   join: async (gameId) => {
     const socket = getGameSocket();
-    if (!wired) {
-      wired = true;
+    if (wiredSocket !== socket) {
+      wiredSocket = socket;
       socket.on("connect", () => {
         set({ connected: true });
         // On a reconnect, silently re-join to restore the live state.

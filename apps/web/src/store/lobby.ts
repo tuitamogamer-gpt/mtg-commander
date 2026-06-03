@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { ChatMessage, Room, RoomSummary, RoomSettings } from "@mtgc/shared";
-import { getLobbySocket, emitAck } from "@/lib/socket";
+import { getLobbySocket, emitAck, type LobbySocket } from "@/lib/socket";
 
 interface LobbyState {
   connected: boolean;
@@ -26,7 +26,9 @@ interface LobbyState {
   clearStarted: () => void;
 }
 
-let initialized = false;
+// Tracks which socket instance we've wired listeners to; re-wires after a
+// resetSockets() (login/logout) creates a fresh socket.
+let wiredSocket: LobbySocket | null = null;
 
 export const useLobby = create<LobbyState>((set, get) => ({
   connected: false,
@@ -36,9 +38,17 @@ export const useLobby = create<LobbyState>((set, get) => ({
   startedGameId: null,
 
   init: () => {
-    if (initialized) return;
-    initialized = true;
     const socket = getLobbySocket();
+    if (wiredSocket === socket) {
+      if (socket.connected) {
+        set({ connected: true });
+        get().refreshRooms();
+      }
+      return;
+    }
+    wiredSocket = socket;
+    // Fresh socket (new user) → clear any stale lobby state.
+    set({ rooms: [], room: null, chat: [], startedGameId: null });
 
     socket.on("connect", () => {
       set({ connected: true });
