@@ -28,23 +28,27 @@ describe("ColorPips", () => {
 });
 
 describe("AuthForm", () => {
-  it("renders username + password fields for login", () => {
+  it("renders identifier + password fields for login (no email)", () => {
     render(
       <MemoryRouter>
         <AuthForm mode="login" />
       </MemoryRouter>
     );
-    expect(screen.getByLabelText("Username")).toBeInTheDocument();
+    expect(screen.getByLabelText("Username or email")).toBeInTheDocument();
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /log in/i })).toBeInTheDocument();
   });
 
-  it("shows the sign-up affordance in register mode", () => {
+  it("shows username, email and password fields in register mode", () => {
     render(
       <MemoryRouter>
         <AuthForm mode="register" />
       </MemoryRouter>
     );
+    expect(screen.getByLabelText("Username", { exact: true })).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign up/i })).toBeInTheDocument();
   });
 });

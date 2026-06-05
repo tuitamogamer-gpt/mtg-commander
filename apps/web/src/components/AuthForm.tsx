@@ -11,7 +11,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const login = useAuth((s) => s.login);
   const register = useAuth((s) => s.register);
 
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState(""); // username (register) or username/email (login)
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -23,8 +24,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     setError(null);
     setSubmitting(true);
     try {
-      if (isLogin) await login(username, password);
-      else await register(username, password);
+      if (isLogin) await login(identifier, password);
+      else await register(identifier, email, password);
       navigate("/lobby");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong");
@@ -42,18 +43,34 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-sm text-muted" htmlFor="username">
-                Username
+              <label className="text-sm text-muted" htmlFor="identifier">
+                {isLogin ? "Username or email" : "Username"}
               </label>
               <Input
-                id="username"
+                id="identifier"
                 autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="planeswalker_42"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder={isLogin ? "planeswalker_42 or you@example.com" : "planeswalker_42"}
                 required
               />
             </div>
+            {!isLogin && (
+              <div className="space-y-1.5">
+                <label className="text-sm text-muted" htmlFor="email">
+                  Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-sm text-muted" htmlFor="password">
                 Password

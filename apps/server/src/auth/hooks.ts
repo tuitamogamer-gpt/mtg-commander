@@ -23,5 +23,10 @@ export async function resolveUser(request: FastifyRequest) {
   if (!payload) return null;
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   if (!user) return null;
-  return { id: user.id, username: user.username, createdAt: user.createdAt.toISOString() };
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    createdAt: user.createdAt.toISOString(),
+  };
 }

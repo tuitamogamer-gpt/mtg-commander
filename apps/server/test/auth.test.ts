@@ -2,6 +2,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { makeApp, registerUser } from "./helpers.js";
 
+const reg = (app: FastifyInstance, body: Record<string, unknown>) =>
+  app.inject({ method: "POST", url: "/api/auth/register", payload: body });
+const login = (app: FastifyInstance, body: Record<string, unknown>) =>
+  app.inject({ method: "POST", url: "/api/auth/login", payload: body });
+
 describe("auth", () => {
   let app: FastifyInstance;
   beforeAll(async () => {
@@ -11,34 +16,36 @@ describe("auth", () => {
     await app.close();
   });
 
-  it("registers a new user and sets a cookie", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/auth/register",
-      payload: { username: `reg_${Date.now()}`, password: "secret123" },
-    });
+  it("registers a new user with email and sets a cookie", async () => {
+    const name = `reg_${Date.now()}`;
+    const res = await reg(app, { username: name, email: `${name}@example.com`, password: "secret123" });
     expect(res.statusCode).toBe(201);
     expect(res.headers["set-cookie"]).toBeTruthy();
     expect(res.json().user.username).toMatch(/^reg_/);
+    expect(res.json().user.email).toBe(`${name}@example.com`);
   });
 
   it("rejects a short password with 400", async () => {
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/auth/register",
-      payload: { username: "shorty", password: "x" },
-    });
+    const res = await reg(app, { username: "shorty", email: "shorty@example.com", password: "x" });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects an invalid email with 400", async () => {
+    const res = await reg(app, { username: "bademail", email: "not-an-email", password: "secret123" });
     expect(res.statusCode).toBe(400);
   });
 
   it("rejects a duplicate username with 409", async () => {
     const name = `dup_${Date.now()}`;
-    await app.inject({ method: "POST", url: "/api/auth/register", payload: { username: name, password: "secret123" } });
-    const res = await app.inject({
-      method: "POST",
-      url: "/api/auth/register",
-      payload: { username: name, password: "secret123" },
-    });
+    await reg(app, { username: name, email: `${name}@example.com`, password: "secret123" });
+    const res = await reg(app, { username: name, email: `${name}2@example.com`, password: "secret123" });
+    expect(res.statusCode).toBe(409);
+  });
+
+  it("rejects a duplicate email with 409", async () => {
+    const email = `dupmail_${Date.now()}@example.com`;
+    await reg(app, { username: `um_${Date.now()}a`, email, password: "secret123" });
+    const res = await reg(app, { username: `um_${Date.now()}b`, email, password: "secret123" });
     expect(res.statusCode).toBe(409);
   });
 
@@ -63,14 +70,18 @@ describe("auth", () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it("logs in with correct credentials and rejects wrong ones", async () => {
+  it("logs in by username or email, and rejects wrong passwords", async () => {
     const name = `login_${Date.now()}`;
-    await app.inject({ method: "POST", url: "/api/auth/register", payload: { username: name, password: "secret123" } });
+    const email = `${name}@example.com`;
+    await reg(app, { username: name, email, password: "secret123" });
 
-    const ok = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: name, password: "secret123" } });
-    expect(ok.statusCode).toBe(200);
+    const byUser = await login(app, { identifier: name, password: "secret123" });
+    expect(byUser.statusCode).toBe(200);
 
-    const bad = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: name, password: "wrongpass" } });
+    const byEmail = await login(app, { identifier: email, password: "secret123" });
+    expect(byEmail.statusCode).toBe(200);
+
+    const bad = await login(app, { identifier: name, password: "wrongpass" });
     expect(bad.statusCode).toBe(401);
   });
 

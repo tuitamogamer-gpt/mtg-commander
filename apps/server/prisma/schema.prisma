@@ -14,6 +14,7 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   username     String   @unique
+  email        String?  @unique // required at registration; nullable for legacy rows
   passwordHash String
   createdAt    DateTime @default(now())
   decks        Deck[]

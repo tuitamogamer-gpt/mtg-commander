@@ -9,7 +9,8 @@ const uniqueName = (p: string) => `${p}${Date.now().toString(36)}${seq++}`;
 
 async function register(page: Page, username: string) {
   await page.goto("/register");
-  await page.getByLabel("Username").fill(username);
+  await page.getByLabel("Username", { exact: true }).fill(username);
+  await page.getByLabel("Email").fill(`${username}@example.com`);
   await page.getByLabel("Password").fill("secret123");
   // Scope to the form (the header also has a "Sign up" link).
   await page.getByRole("main").getByRole("button", { name: /sign up/i }).click();

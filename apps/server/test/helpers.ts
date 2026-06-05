@@ -17,7 +17,7 @@ export async function registerUser(app: FastifyInstance, username?: string) {
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/register",
-    payload: { username: name, password: "secret123" },
+    payload: { username: name, email: `${name}@example.com`, password: "secret123" },
   });
   const setCookie = res.headers["set-cookie"];
   const raw = Array.isArray(setCookie) ? setCookie[0] : setCookie ?? "";

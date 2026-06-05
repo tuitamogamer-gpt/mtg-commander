@@ -8,8 +8,8 @@ interface AuthState {
   /** false once the initial /me check has resolved. */
   loading: boolean;
   fetchMe: () => Promise<void>;
-  login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -28,15 +28,15 @@ export const useAuth = create<AuthState>((set) => ({
       }
     }
   },
-  login: async (username, password) => {
+  login: async (identifier, password) => {
     // Drop any sockets authed as a previous user before switching identity.
     resetSockets();
-    const { user } = await api.post<AuthResponse>("/api/auth/login", { username, password });
+    const { user } = await api.post<AuthResponse>("/api/auth/login", { identifier, password });
     set({ user });
   },
-  register: async (username, password) => {
+  register: async (username, email, password) => {
     resetSockets();
-    const { user } = await api.post<AuthResponse>("/api/auth/register", { username, password });
+    const { user } = await api.post<AuthResponse>("/api/auth/register", { username, email, password });
     set({ user });
   },
   logout: async () => {
