@@ -144,5 +144,9 @@ describe("consolidated e2e", () => {
     const matches = (await app.inject({ method: "GET", url: "/api/matches", headers: { cookie: host.cookie } })).json();
     expect(matches.length).toBeGreaterThanOrEqual(1);
     expect(matches[0].winnerId).toBe(vH.viewerId);
+
+    // The lobby room is cleaned up — no dead "In progress" table left behind.
+    const rooms = await new Promise<{ id: string }[]>((r) => lh.emit("lobby:list_rooms", r));
+    expect(rooms.some((rm) => rm.id === room.id)).toBe(false);
   });
 });

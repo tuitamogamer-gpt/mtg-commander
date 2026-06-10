@@ -3,6 +3,24 @@
 All notable changes to this project. Built in numbered phases (Faze); each was a
 self-contained commit.
 
+## Unreleased (post-v0.2.0)
+
+- **Auth**: registration now requires a unique email; login accepts username OR
+  email (nullable `User.email` migration keeps legacy accounts working).
+- **Game QoL**: hover-to-act shortcuts (hover a card and press C cast / T tap /
+  G/X/H/B move / ± counters), clickable phase chips (`set_phase`), simpler turn
+  keys (Space = next phase, Enter = next turn, P = pass priority).
+- **Hover-zoom**: preview pins to the screen edge opposite the cursor so it never
+  covers the card; an unmounting card no longer hides another card's preview.
+- **Precon library**: deck tiles with commander art banners (click to add).
+- **Theme**: dark-only (the light theme rendered white-on-white and was removed);
+  high-contrast toggle kept.
+- **Fixes**: sockets re-handshake on login/logout ("Deck not found" after account
+  switch); finished games now remove their lobby room (no more dead "In progress"
+  tables in the lobby list).
+- **Deploy prep**: split-origin support (web on Vercel via `VITE_API_URL`, API on
+  Railway with `COOKIE_SAMESITE=none`), `vercel.json` + `railway.json`.
+
 ## v0.2.0 — "polished product" pass
 
 Turns the v0.1.0 MVP into something a playgroup would actually enjoy using.

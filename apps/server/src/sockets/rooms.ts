@@ -106,6 +106,11 @@ class RoomManager {
     return room;
   }
 
+  /** Drop a room entirely (e.g. its game finished). No-op if already gone. */
+  remove(roomId: string): void {
+    this.rooms.delete(roomId);
+  }
+
   markStarted(roomId: string, gameId: string): Room {
     const room = this.require(roomId);
     room.status = "in_game";

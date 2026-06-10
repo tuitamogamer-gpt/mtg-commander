@@ -7,6 +7,7 @@ import type {
   GameServerToClient,
 } from "@mtgc/shared";
 import { socketAuth } from "./auth.js";
+import { roomManager } from "./rooms.js";
 import { gameManager } from "../game/manager.js";
 import { prisma } from "../db.js";
 
@@ -205,6 +206,10 @@ export function registerGameNamespace(io: Server): void {
       });
       state.status = "finished";
       await gameManager.persist(state);
+      // The lobby room has served its purpose — drop it so the lobby list
+      // doesn't accumulate dead "In progress" tables.
+      roomManager.remove(state.roomId);
+      io.of("/lobby").emit("lobby:rooms", roomManager.list());
       ns.to(gameChannel(gameId)).emit("game:log", {
         ts: Date.now(),
         playerId: user.id,

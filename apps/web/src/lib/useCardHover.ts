@@ -12,15 +12,18 @@ export function useCardHover(scryfallId?: string | null) {
   const show = useHover((s) => s.show);
   const move = useHover((s) => s.move);
   const hide = useHover((s) => s.hide);
+  const hideIf = useHover((s) => s.hideIf);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Clean up on unmount so a removed card never leaves a stuck preview.
+  // Clean up on unmount so a removed card never leaves a stuck preview — but
+  // only clear the preview if it is OURS, so a card that just changed zones
+  // doesn't kill the preview of the card the cursor is now on.
   useEffect(() => {
     return () => {
       if (timer.current) clearTimeout(timer.current);
-      hide();
+      if (scryfallId) hideIf(scryfallId);
     };
-  }, [hide]);
+  }, [hideIf, scryfallId]);
 
   // Stable handler shape (no-ops when disabled) so callers can always spread or
   // compose them without union-narrowing.

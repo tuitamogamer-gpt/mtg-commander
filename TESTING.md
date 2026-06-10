@@ -20,7 +20,7 @@ Playwright e2e job.
 
 | File | Scenarios |
 | --- | --- |
-| `test/auth.test.ts` | register (201 + cookie), short-password 400, duplicate 409, `/me` with/without/garbage cookie, login ok/bad, logout |
+| `test/auth.test.ts` | register with email (201 + cookie), short-password / invalid-email 400, duplicate username / duplicate email 409, `/me` with/without/garbage cookie, **login by username or email**, wrong-password 401, logout |
 | `test/decks.test.ts` | auth required; create + computed color identity; invalid 400; full CRUD; cross-user 404; validate (count/commander); **color-identity violation flagged**; **singleton exemption for basics + "any number" cards** |
 | `test/precons.test.ts` | list; filter by set; **color-identity subset filter**; name search; clone to deck; unknown 404 |
 | `test/cards.test.ts` | cached-card no network; fetch+cache; 404; search proxy; empty query; batch validation; **resolve-by-name (text import)** |
