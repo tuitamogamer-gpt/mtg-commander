@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm --filter @mtgc/server exec prisma generate --schema prisma/postgres.prisma && pnpm --filter @mtgc/shared build && pnpm --filter @mtgc/web build",
+  "buildCommand": "pnpm --filter @mtgc/server exec prisma generate --schema prisma/postgres.prisma && pnpm --filter @mtgc/shared build && pnpm --filter @mtgc/web build && pnpm build:fn",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "apps/web/dist",
   "framework": null,
