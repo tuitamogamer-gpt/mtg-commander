@@ -26,10 +26,10 @@ Playwright e2e job.
 | `test/cards.test.ts` | cached-card no network; fetch+cache; 404; search proxy; empty query; batch validation; **resolve-by-name (text import)** |
 | `test/moxfield.test.ts` | id/URL parse; v3 board parse (commander vs mainboard); friendly failure (network mocked) |
 | `test/game-engine.test.ts` | opening hand + command zone; per-viewer + spectator redaction; draw/mill/shuffle; move + battlefield-state reset; untap-all; life/commander-damage/poison; mana + player counters; monarch/initiative; **London mulligan + keep/bottom**; **stack cast + resolve to owner**; **scry arrange + reveal**; token create + vanish; phase/turn skip; annotate/flip/reveal/concede; **commander starts in command zone**; **commander tax per cast**; **return to command zone**; **elimination at 21 cmd damage / 0 life / 10 poison** |
-| `test/lobby.test.ts` | unauthenticated socket rejected; create→join→ready→start; non-host start blocked |
-| `test/game-socket.test.ts` | seated join + redacted view; spectator join allowed but actions rejected; peek; action reflected; **undo restores pre-action library count** |
+| `test/lobby.test.ts` | unauthenticated 401; REST create→join→deck→ready→start flow; polled room reports in_game+gameId; non-host start 403; foreign deck 404; incremental room chat |
+| `test/game-rest.test.ts` | redacted per-viewer state; `?since=` change polling; actions bump version (peers' polls see it); **undo restores pre-action library count**; spectator read-only (hidden hands, action/peek 403); private peek; spectator-tagged chat |
 | `test/health.test.ts` | health reports DB ok; `/api/metrics` shape |
-| `test/consolidated-e2e.test.ts` | **full lifecycle** over real sockets: auth → commander decks → lobby (+spectator) → start → mulligan keep → cast commander (tax/timesCast) → token create → undo (token gone) → scry 3 → 21 commander damage → end game (winner) → match in history; spectator sees hidden hands |
+| `test/consolidated-e2e.test.ts` | **full lifecycle** over the REST polling API: auth → commander decks → lobby (+spectator) → start → mulligan keep → cast commander (tax/timesCast) → token create → undo (token gone) → scry 3 → 21 commander damage → end game (winner) → match in history → lobby room cleaned up; spectator sees hidden hands |
 
 ## Frontend (Vitest + React Testing Library + jsdom)
 

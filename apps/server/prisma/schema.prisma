@@ -76,13 +76,28 @@ model Card {
   @@index([name])
 }
 
-/// Persisted game snapshot for reconnect / crash recovery. Live state lives in
-/// memory; this is written periodically and on significant events.
+/// Lobby room. DB-backed so it works across serverless instances; expires via
+/// updatedAt staleness instead of process lifetime.
+model Room {
+  id        String   @id
+  data      String // JSON: Room (shared/lobby.ts)
+  status    String   @default("waiting") // waiting | in_game
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([status])
+}
+
+/// Authoritative game state. Stateless servers load → apply action → save, with
+/// `version` as an optimistic-concurrency guard. `history` holds the last few
+/// pre-action snapshots for undo.
 model Game {
   id        String   @id
   roomId    String
   status    String   @default("active") // active | finished
   state     String // JSON: GameState
+  version   Int      @default(0)
+  history   String   @default("[]") // JSON: string[] of serialized GameState
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

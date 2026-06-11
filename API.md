@@ -50,22 +50,30 @@ TypeScript types in `packages/shared`.
 | GET | `/api/health` | `{ status, db }`; 503 if DB down |
 | GET | `/api/metrics` | uptime, requests, latency, active games/sockets |
 
-## Socket.IO
+## Lobby (auth, polled by clients)
 
-Both namespaces authenticate from the auth cookie.
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/lobby/rooms` | open rooms (`RoomSummary[]`); polled ~2.5s |
+| POST | `/api/lobby/rooms` | `{ name?, maxPlayers?, settings? }` → `Room` |
+| GET | `/api/lobby/rooms/:id` | room state; also records the viewer's presence heartbeat |
+| POST | `/api/lobby/rooms/:id/join` \| `/leave` | seat management |
+| POST | `/api/lobby/rooms/:id/deck` | `{ deckId }` (ownership enforced) |
+| POST | `/api/lobby/rooms/:id/ready` | `{ ready }` |
+| POST | `/api/lobby/rooms/:id/start` | host-only → `{ gameId }`; peers see it via the room poll |
+| GET/POST | `/api/lobby/rooms/:id/chat` | `?after=<epoch ms>` incremental fetch / `{ text }` |
 
-### `/lobby`
-Client → server (ack-based): `lobby:list_rooms`, `lobby:create_room`,
-`lobby:join_room`, `lobby:leave_room`, `lobby:set_deck`, `lobby:ready`,
-`lobby:start_game`, `lobby:chat`.
-Server → client: `lobby:rooms`, `lobby:room_updated`, `lobby:game_started`,
-`lobby:chat`.
+## Game (auth, polled by clients)
 
-### `/game`
-Client → server: `game:join`, `game:action` (the `GameAction` union),
-`game:undo`, `game:end`, `game:peek`, `game:request_state`, `game:chat`.
-Server → client: `game:state` (per-viewer redacted `GameStateView`), `game:log`,
-`game:chat`, `game:player_connection`, `game:error`.
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/api/games/:id/state?since=<version>` | per-viewer redacted `GameStateView`; returns only `{ version }` when unchanged (polled ~1.5s); 403 for spectators when disallowed |
+| POST | `/api/games/:id/action` | a `GameAction`; returns the actor's fresh state immediately |
+| POST | `/api/games/:id/undo` | restore the last pre-action snapshot |
+| POST | `/api/games/:id/end` | `{ winnerId }` — records a Match, cleans up the lobby room |
+| GET | `/api/games/:id/peek?count=` | top N of your own library (scry/search), private |
+| GET/POST | `/api/games/:id/chat` | `?after=` incremental / `{ text }` (spectator-tagged) |
 
-> A machine-readable OpenAPI spec (via `fastify-swagger`) is a possible future
-> addition; today the shared TypeScript types are the source of truth.
+> Realtime is plain HTTP polling — no WebSockets — so the API runs fully on
+> serverless hosting (Vercel). The shared TypeScript types are the source of
+> truth for payload shapes.

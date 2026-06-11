@@ -23,14 +23,14 @@ short in-app walkthrough on first login.
 | ---------- | ----------------------------------------------------------------- |
 | Monorepo   | pnpm workspaces (`apps/web`, `apps/server`, `packages/shared`)    |
 | Frontend   | React 18 · Vite 6 · TypeScript · Tailwind v4 · React Router · Zustand · dnd-kit |
-| Backend    | Node 20+ · Fastify 5 · Socket.IO · Prisma · SQLite (Postgres-ready) |
+| Backend    | Node 20+ · Fastify 5 · Prisma · SQLite (dev) / Postgres (prod)    |
 | Auth       | JWT in an httpOnly cookie · bcrypt                                |
-| Realtime   | Socket.IO namespaces `/lobby` and `/game`                         |
+| Realtime   | HTTP polling (versioned game state, DB-backed rooms) — serverless-friendly, runs fully on Vercel |
 | Card data  | Scryfall (cards) · Moxfield (deck import) · MTGJSON (precons)      |
 
 `packages/shared` holds all cross-cutting TypeScript contracts (card/deck/game/
-lobby models, the `GameAction` union, and the Socket.IO event maps), imported by
-both apps so the wire protocol is typed end-to-end.
+lobby models and the `GameAction` union), imported by both apps so the wire
+protocol is typed end-to-end.
 
 ---
 
@@ -90,42 +90,46 @@ join with the second account, ready up, and start the game.
 
 ```
 mtg-commander/
+├─ api/index.ts              # Vercel serverless entry — serves the whole Fastify app
 ├─ packages/shared/          # TS contracts shared by web + server
-│  └─ src/{cards,decks,auth,game,lobby,socket}.ts
+│  └─ src/{cards,decks,auth,game,lobby,chat,social}.ts
 ├─ apps/server/
-│  ├─ prisma/schema.prisma   # User, Deck, PreconDeck, Card (cache), Game (snapshot)
+│  ├─ prisma/schema.prisma   # User, Deck, PreconDeck, Card (cache), Room, Game, Match, GameChat
 │  ├─ scripts/seed-precons.ts
 │  └─ src/
-│     ├─ app.ts / index.ts   # Fastify build + HTTP/Socket.IO listener
+│     ├─ app.ts / index.ts   # Fastify build + standalone listener (dev/Docker)
 │     ├─ auth/               # JWT sign/verify, requireAuth hook
-│     ├─ routes/             # auth, cards, decks, precons
-│     ├─ services/           # scryfall (cache), moxfield, deck, http (curl)
-│     ├─ game/               # state builder, action engine, GameManager
-│     └─ sockets/            # auth middleware, rooms, lobby ns, game ns
+│     ├─ routes/             # auth, cards, decks, precons, matches, lobby, game
+│     ├─ services/           # scryfall (cache), moxfield, deck, rooms (DB), http (curl)
+│     └─ game/               # state builder, action engine, stateless gameService
 └─ apps/web/
    └─ src/
       ├─ pages/              # Landing, Login/Register, Lobby list/room, Decks, Precons, Game
       ├─ components/         # UI primitives + game/* (board, cards, trackers)
-      ├─ store/              # zustand: auth, lobby, game, cards
-      └─ lib/                # api client, socket client, helpers
+      ├─ store/              # zustand: auth, lobby (polling), game (polling), cards
+      └─ lib/                # api client, polling helpers
 ```
 
 ### Request flow
 
-- The Vite dev server proxies `/api/*` and `/socket.io` to the backend on `:4000`,
-  so the browser is always same-origin and the httpOnly JWT cookie is first-party.
-- Socket.IO connections authenticate from that same cookie in the handshake.
+- The Vite dev server proxies `/api/*` to the backend on `:4000`, so the browser
+  is always same-origin and the httpOnly JWT cookie is first-party. On Vercel the
+  same Fastify app runs as a serverless function behind `/api/*` rewrites — also
+  same-origin.
 
-### Game model (honor system)
+### Game model (honor system, serverless-friendly)
 
-- The authoritative `GameState` lives in memory in `GameManager` and is
-  snapshotted (debounced) to the `Game` table for reconnect/restart recovery.
+- The authoritative `GameState` lives in the **database**; every action loads it,
+  applies the change, and saves it back guarded by an optimistic `version`
+  (retried once on a concurrent write). Lobby rooms are DB rows too, so any
+  serverless instance can serve any request.
+- Clients **poll**: `GET /api/games/:id/state?since=<version>` returns a payload
+  only when something changed (1.5 s cadence in-game; actions return the fresh
+  state immediately so your own moves feel instant). Presence is a `lastSeenAt`
+  heartbeat derived from those polls — no persistent connections anywhere.
 - Each client receives a **redacted** `GameStateView`: it sees its own hand and
   all public zones; other players' hands are counts only and every library is
-  hidden.
-- Clients send a `GameAction` (a discriminated union) over `game:action`; the
-  server applies it (`game/actions.ts`), bumps a version, appends to the log, and
-  rebroadcasts each player their own view. The server does **not** referee rules.
+  hidden. The server does **not** referee rules.
 
 ---
 
@@ -163,8 +167,9 @@ See the [Changelog](CHANGELOG.md) for the full per-phase breakdown.
   (100-card count, singleton, Commander **ban list**, commander legality, identity).
 
 **Lobby**
-- Socket.IO rooms: create/join/leave, deck selection, ready-up, host-only start
-  (2–4 players), per-table chat, and an "allow spectators" toggle.
+- Rooms: create/join/leave, deck selection, ready-up, host-only start
+  (2–4 players), per-table chat, and an "allow spectators" toggle — all over
+  polled REST, so it works on serverless hosting.
 
 **Game table (server-authoritative, honor-system)**
 - Drag-and-drop between battlefield rows, hand, graveyard, exile, command, and the
@@ -177,12 +182,13 @@ See the [Changelog](CHANGELOG.md) for the full per-phase breakdown.
 - Full **London mulligan** flow (keep / mulligan / bottom-N), with opponents'
   mulligan counts shown.
 - Phase + turn bar (pass-priority / next-phase / next-turn, skipping absent seats).
-- **Reconnect** — auto re-join on socket reconnect; 5-minute grace with a
-  disconnect banner + countdown and a host "skip / restore" control.
+- **Reconnect-friendly** — state lives in the DB, so a refresh or drop just
+  resumes on the next poll; presence-derived disconnect banner and a host
+  "skip / restore" control.
 - **Spectator mode** — watch a table read-only with hidden hands/libraries and
   tagged chat.
 - **Hover-zoom** large card preview anywhere; game log and in-game chat.
-- Hidden hands/libraries enforced per viewer; reconnect-safe DB snapshots.
+- Hidden hands/libraries enforced per viewer.
 
 **Ops**
 - Responsive / mobile layout (drawer sidebar, touch drag-drop).
@@ -207,20 +213,31 @@ See the [Changelog](CHANGELOG.md) for the full per-phase breakdown.
 
 ## Deployment
 
+### Vercel only (recommended)
+
+The whole app runs on Vercel: the SPA as static files and the entire Fastify API
+as one serverless function (`api/index.ts`, `/api/*` rewrites in `vercel.json`).
+Realtime is HTTP polling against DB-backed state, so no socket server is needed.
+The only external piece is a hosted Postgres (one click via Vercel Marketplace →
+Neon, free tier).
+
+1. Import the repo on Vercel (or `vercel deploy --prod`).
+2. Storage → add **Neon Postgres** (sets `DATABASE_URL` automatically).
+3. Env vars: `JWT_SECRET` (long random string), `NODE_ENV=production`.
+4. Push the schema + seed precons once, from your machine:
+   ```bash
+   vercel env pull .env.vercel
+   # use the pulled DATABASE_URL with the postgres schema:
+   pnpm --filter @mtgc/server exec prisma db push --schema prisma/postgres.prisma
+   pnpm db:seed:precons
+   ```
+5. Redeploy. Done — same-origin cookies, no CORS, no Railway.
+
+### Docker (self-host)
+
 A `docker-compose.yml` brings up Postgres + the API server + an nginx-served web
-build. The server image runs Prisma against Postgres (via `prisma/postgres.prisma`,
-synced with `prisma db push`); nginx serves the SPA and reverse-proxies `/api`
-and `/socket.io` to the server so the browser stays same-origin.
-
-```bash
-cp .env.example .env          # set JWT_SECRET and a POSTGRES_PASSWORD
-docker compose up --build     # web → http://localhost:8080
-docker compose exec server pnpm seed:precons   # one-time precon seed
-```
-
-Environment variables (`.env`): `POSTGRES_USER/PASSWORD/DB`, `JWT_SECRET`
-(required), `CLIENT_ORIGIN` (browser origin, for CORS + cookie), `COOKIE_DOMAIN`
-(optional, for cross-subdomain auth), `WEB_PORT`.
+build (`cp .env.example .env`, set `JWT_SECRET`, `docker compose up --build`,
+then `docker compose exec server pnpm seed:precons`). Web → `http://localhost:8080`.
 
 **Health check:** `GET /api/health` returns `{ status: "ok", … }` for uptime
 monitors / container healthchecks.
@@ -229,25 +246,6 @@ monitors / container healthchecks.
 the mirrored `prisma/postgres.prisma`. Keep the two model blocks in sync. Because
 the providers differ, production uses `prisma db push` (schema sync) rather than
 the SQLite migration history.
-
-### Split-origin: Vercel (web) + Railway (server)
-
-Vercel can't host the realtime server (Socket.IO needs persistent connections),
-so the SPA goes on Vercel and the API on Railway. The client reads the API origin
-from `VITE_API_URL`, and the server allows cross-site cookies.
-
-1. **Railway (server + Postgres):** new project from this repo; it builds
-   `apps/server/Dockerfile` (see `railway.json`). Add the Postgres plugin
-   (injects `DATABASE_URL`). Set vars: `JWT_SECRET`, `NODE_ENV=production`,
-   `COOKIE_SAMESITE=none`, and `CLIENT_ORIGIN=<your Vercel URL>`. Note the public
-   server URL (e.g. `https://…up.railway.app`).
-2. **Vercel (web):** import the repo (config in `vercel.json`). Set build env
-   `VITE_API_URL=<your Railway server URL>`. Deploy; note the Vercel URL.
-3. Set Railway's `CLIENT_ORIGIN` to that Vercel URL and redeploy. Seed precons
-   once: `railway run pnpm db:seed:precons` (or a one-off shell).
-
-Because cookies are cross-site here they're sent `SameSite=None; Secure` — both
-sides must be HTTPS (Vercel/Railway are).
 
 ### Other hosts
 

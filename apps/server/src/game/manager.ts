@@ -1,23 +1,67 @@
 import { nanoid } from "nanoid";
-import type { GameState, GameStateView } from "@mtgc/shared";
-import type { Room } from "@mtgc/shared";
+import type { GameAction, GameState, GameStateView, Room } from "@mtgc/shared";
 import { prisma } from "../db.js";
 import { parseCards } from "../services/deck.js";
 import { buildInitialGameState, redactState, type SeatInput } from "./state.js";
 import { applyAction } from "./actions.js";
-import type { GameAction } from "@mtgc/shared";
 
 /**
- * Authoritative in-memory store of live games. State is held in a Map and
- * snapshotted to the Game table so a crash/restart (or a reconnecting player)
- * can recover. Rules are honor-system: see game/actions.ts (Faza 9) for how
- * client actions mutate state — the server applies and rebroadcasts, it does not
- * referee.
+ * Stateless game store for the serverless/polling architecture. Every operation
+ * loads the authoritative GameState from the DB, mutates, and saves it back with
+ * an optimistic-concurrency guard on `version` (retried once on conflict).
+ * Presence is a lastSeenAt heartbeat refreshed by each player's state poll;
+ * `connected`/`disconnectedAt` are derived at read time.
  */
-class GameManager {
-  private games = new Map<string, GameState>();
 
-  /** Build a fresh game from a ready lobby room and persist a snapshot. */
+/** A player counts as connected if they polled within this window. */
+const PRESENCE_WINDOW_MS = 12_000;
+/** Throttle heartbeat writes so polling doesn't write on every request. */
+const PRESENCE_WRITE_MS = 5_000;
+/** How many pre-action snapshots to keep for undo. */
+const HISTORY_LIMIT = 10;
+
+interface GameRow {
+  state: GameState;
+  version: number;
+  history: string[];
+}
+
+function derivePresence(state: GameState): GameState {
+  const now = Date.now();
+  for (const p of state.players) {
+    const last = p.lastSeenAt ?? 0;
+    p.connected = now - last < PRESENCE_WINDOW_MS;
+    p.disconnectedAt = p.connected ? null : last || null;
+  }
+  return state;
+}
+
+async function load(gameId: string): Promise<GameRow | null> {
+  const row = await prisma.game.findUnique({ where: { id: gameId } });
+  if (!row) return null;
+  return {
+    state: JSON.parse(row.state) as GameState,
+    version: row.version,
+    history: JSON.parse(row.history) as string[],
+  };
+}
+
+/** Save with optimistic concurrency; returns false when someone else won. */
+async function save(gameId: string, prevVersion: number, state: GameState, history: string[]): Promise<boolean> {
+  const res = await prisma.game.updateMany({
+    where: { id: gameId, version: prevVersion },
+    data: {
+      state: JSON.stringify(state),
+      history: JSON.stringify(history),
+      version: prevVersion + 1,
+      status: state.status,
+    },
+  });
+  return res.count === 1;
+}
+
+export const gameService = {
+  /** Build a fresh game from a ready lobby room and persist it. */
   async createGame(room: Room): Promise<GameState> {
     const deckIds = room.players.map((p) => p.deckId).filter((id): id is string => Boolean(id));
     const decks = await prisma.deck.findMany({ where: { id: { in: deckIds } } });
@@ -25,168 +69,114 @@ class GameManager {
 
     const seats: SeatInput[] = room.players.map((p) => {
       const deck = p.deckId ? deckById.get(p.deckId) : undefined;
-      return {
-        userId: p.id,
-        username: p.username,
-        cards: deck ? parseCards(deck.cards) : [],
-      };
+      return { userId: p.id, username: p.username, cards: deck ? parseCards(deck.cards) : [] };
     });
 
-    const gameId = nanoid(10);
     const state = buildInitialGameState(
-      gameId,
+      nanoid(10),
       room.id,
       seats,
       room.settings.startingLife,
       room.settings.allowSpectators
     );
-    this.games.set(gameId, state);
-    await this.persist(state);
+    const now = Date.now();
+    for (const p of state.players) p.lastSeenAt = now;
+
+    await prisma.game.create({
+      data: { id: state.id, roomId: room.id, state: JSON.stringify(state), version: 0 },
+    });
     return state;
-  }
+  },
 
-  get(gameId: string): GameState | undefined {
-    return this.games.get(gameId);
-  }
+  /**
+   * Per-viewer redacted view. Seated viewers also get their presence heartbeat
+   * refreshed (throttled). Returns null when the game doesn't exist; "forbidden"
+   * when the viewer has no seat and spectating is off.
+   */
+  async view(gameId: string, viewerId: string): Promise<GameStateView | null | "forbidden"> {
+    const row = await load(gameId);
+    if (!row) return null;
+    const seat = row.state.players.find((p) => p.id === viewerId);
+    if (!seat && !row.state.allowSpectators) return "forbidden";
 
-  /** Number of games currently live in memory (for metrics). */
-  activeCount(): number {
-    return this.games.size;
-  }
+    if (seat && Date.now() - (seat.lastSeenAt ?? 0) > PRESENCE_WRITE_MS) {
+      seat.lastSeenAt = Date.now();
+      // Heartbeat write; harmless if it loses an optimistic race.
+      await save(gameId, row.version, row.state, row.history);
+      row.version += 1;
+    }
+    const view = redactState(derivePresence(row.state), viewerId);
+    view.version = row.version; // expose the ROW version for cheap change polling
+    return view;
+  },
 
-  /** Load a game into memory from its DB snapshot (used after a restart). */
-  async load(gameId: string): Promise<GameState | undefined> {
-    const inMemory = this.games.get(gameId);
-    if (inMemory) return inMemory;
-    const row = await prisma.game.findUnique({ where: { id: gameId } });
-    if (!row) return undefined;
-    const state = JSON.parse(row.state) as GameState;
-    this.games.set(gameId, state);
-    return state;
-  }
+  /** Current row version, for `?since=` change detection without a full payload. */
+  async version(gameId: string): Promise<number | null> {
+    const row = await prisma.game.findUnique({ where: { id: gameId }, select: { version: true } });
+    return row?.version ?? null;
+  },
 
-  view(gameId: string, viewerId: string): GameStateView | undefined {
-    const state = this.games.get(gameId);
-    return state ? redactState(state, viewerId) : undefined;
-  }
+  /** Apply an action (with undo snapshot). Returns log lines, or null if missing. */
+  async apply(gameId: string, actorId: string, action: GameAction): Promise<string[] | null> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const row = await load(gameId);
+      if (!row) return null;
+      if (!row.state.players.some((p) => p.id === actorId)) return null; // spectators can't act
 
-  /** Privately read the top `count` cards of a player's own library (scry / look /
-   * tutor). Returns null if the game/player isn't found. Does not mutate. */
-  peekLibrary(gameId: string, playerId: string, count: number) {
-    const state = this.games.get(gameId);
-    const player = state?.players.find((p) => p.id === playerId);
+      const history = [...row.history, JSON.stringify(row.state)].slice(-HISTORY_LIMIT);
+      const logs = applyAction(row.state, actorId, action);
+      for (const message of logs) {
+        row.state.log.push({ ts: Date.now(), playerId: actorId, message });
+      }
+      if (row.state.log.length > 200) row.state.log = row.state.log.slice(-200);
+
+      if (await save(gameId, row.version, row.state, history)) return logs;
+      // Optimistic conflict — someone acted simultaneously; reload and retry once.
+    }
+    throw new Error("The table is busy — try again");
+  },
+
+  /** Restore the most recent pre-action snapshot. */
+  async undo(gameId: string): Promise<boolean> {
+    const row = await load(gameId);
+    if (!row || row.history.length === 0) return false;
+    const history = [...row.history];
+    const restored = JSON.parse(history.pop()!) as GameState;
+    restored.log.push({ ts: Date.now(), playerId: "system", message: "An action was undone." });
+    return save(gameId, row.version, restored, history);
+  },
+
+  /** Privately read the top `count` cards of a seated player's own library. */
+  async peekLibrary(gameId: string, playerId: string, count: number) {
+    const row = await load(gameId);
+    const player = row?.state.players.find((p) => p.id === playerId);
     if (!player) return null;
     return player.zones.library.slice(0, Math.max(0, count));
-  }
+  },
 
-  // Ring buffer of pre-action snapshots per game, for single/multi-step undo.
-  private history = new Map<string, string[]>();
-  private static readonly HISTORY_LIMIT = 20;
+  async endGame(gameId: string, enderId: string, winnerId: string | null): Promise<GameState | null> {
+    const row = await load(gameId);
+    if (!row) return null;
+    if (!row.state.players.some((p) => p.id === enderId)) return null;
+    const winner = row.state.players.find((p) => p.id === winnerId) ?? null;
 
-  private pushHistory(state: GameState): void {
-    const stack = this.history.get(state.id) ?? [];
-    stack.push(JSON.stringify(state));
-    if (stack.length > GameManager.HISTORY_LIMIT) stack.shift();
-    this.history.set(state.id, stack);
-  }
-
-  /** Restore the most recent pre-action snapshot. Returns the restored state, or
-   * null if there's nothing to undo. */
-  undo(gameId: string): GameState | null {
-    const stack = this.history.get(gameId);
-    if (!stack || stack.length === 0) return null;
-    const snapshot = stack.pop()!;
-    const restored = JSON.parse(snapshot) as GameState;
-    restored.version += 1;
-    restored.log.push({ ts: Date.now(), playerId: "system", message: "An action was undone." });
-    this.games.set(gameId, restored);
-    this.scheduleSnapshot(restored);
-    return restored;
-  }
-
-  /** Apply an action and schedule a snapshot. Returns log lines, or null if the
-   * game doesn't exist. */
-  apply(gameId: string, actorId: string, action: GameAction): string[] | null {
-    const state = this.games.get(gameId);
-    if (!state) return null;
-    // Snapshot the pre-action state so it can be undone.
-    this.pushHistory(state);
-    const logs = applyAction(state, actorId, action);
-    for (const message of logs) {
-      state.log.push({ ts: Date.now(), playerId: actorId, message });
-    }
-    // Keep the in-state log bounded.
-    if (state.log.length > 200) state.log = state.log.slice(-200);
-    this.scheduleSnapshot(state);
-    return logs;
-  }
-
-  // After this long without reconnecting, a dropped player is auto-skipped so the
-  // table can keep playing.
-  static readonly RECONNECT_GRACE_MS = 5 * 60 * 1000;
-  private skipTimers = new Map<string, NodeJS.Timeout>();
-
-  setConnected(gameId: string, playerId: string, connected: boolean): GameState | undefined {
-    const state = this.games.get(gameId);
-    if (!state) return undefined;
-    const player = state.players.find((p) => p.id === playerId);
-    if (!player) return state;
-
-    player.connected = connected;
-    const timerKey = `${gameId}:${playerId}`;
-
-    if (connected) {
-      player.disconnectedAt = null;
-      // Returning cancels any pending auto-skip but does NOT auto-unskip — the
-      // table may have chosen to skip them deliberately.
-      const t = this.skipTimers.get(timerKey);
-      if (t) {
-        clearTimeout(t);
-        this.skipTimers.delete(timerKey);
-      }
-    } else if (player.disconnectedAt === null) {
-      player.disconnectedAt = Date.now();
-      const timer = setTimeout(() => {
-        this.skipTimers.delete(timerKey);
-        const s = this.games.get(gameId);
-        const p = s?.players.find((x) => x.id === playerId);
-        if (p && !p.connected && !p.skipped) {
-          p.skipped = true;
-          s!.log.push({
-            ts: Date.now(),
-            playerId: "system",
-            message: `${p.username} did not reconnect in time and is now skipped.`,
-          });
-          this.onAutoSkip?.(gameId);
-        }
-      }, GameManager.RECONNECT_GRACE_MS);
-      this.skipTimers.set(timerKey, timer);
-    }
-    return state;
-  }
-
-  /** Hook the game namespace sets so it can rebroadcast after an auto-skip. */
-  onAutoSkip?: (gameId: string) => void;
-
-  // Debounced persistence so a flurry of actions writes at most ~once/sec.
-  private snapshotTimers = new Map<string, NodeJS.Timeout>();
-  private scheduleSnapshot(state: GameState): void {
-    if (this.snapshotTimers.has(state.id)) return;
-    const timer = setTimeout(() => {
-      this.snapshotTimers.delete(state.id);
-      void this.persist(state);
-    }, 1000);
-    this.snapshotTimers.set(state.id, timer);
-  }
-
-  async persist(state: GameState): Promise<void> {
-    const data = { state: JSON.stringify(state), status: state.status };
-    await prisma.game.upsert({
-      where: { id: state.id },
-      create: { id: state.id, roomId: state.roomId, ...data },
-      update: data,
+    await prisma.match.create({
+      data: {
+        gameId,
+        playerIds: JSON.stringify(row.state.players.map((p) => p.id)),
+        participants: JSON.stringify(row.state.players.map((p) => ({ id: p.id, username: p.username }))),
+        winnerId: winner?.id ?? null,
+        winnerName: winner?.username ?? null,
+        turns: row.state.turn,
+      },
     });
-  }
-}
-
-export const gameManager = new GameManager();
+    row.state.status = "finished";
+    row.state.log.push({
+      ts: Date.now(),
+      playerId: enderId,
+      message: winner ? `Game over — ${winner.username} wins!` : "Game ended.",
+    });
+    await save(gameId, row.version, row.state, row.history);
+    return row.state;
+  },
+};

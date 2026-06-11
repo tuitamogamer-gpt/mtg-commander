@@ -34,7 +34,6 @@ export default defineConfig({
           react: ["react", "react-dom", "react-router-dom"],
           motion: ["framer-motion"],
           dnd: ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
-          net: ["socket.io-client"],
         },
       },
     },

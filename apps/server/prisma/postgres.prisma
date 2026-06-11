@@ -4,7 +4,9 @@
 // Keep the model block in sync with prisma/schema.prisma.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" for local generate; rhel for the Vercel serverless runtime.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -76,11 +78,23 @@ model Card {
   @@index([name])
 }
 
+model Room {
+  id        String   @id
+  data      String // JSON: Room (shared/lobby.ts)
+  status    String   @default("waiting")
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([status])
+}
+
 model Game {
   id        String   @id
   roomId    String
   status    String   @default("active")
   state     String // JSON: GameState
+  version   Int      @default(0)
+  history   String   @default("[]") // JSON: string[] of serialized GameState
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

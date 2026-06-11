@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import type { ChatMessage, GameAction, GameCard, GameStateView } from "@mtgc/shared";
-import { getGameSocket, emitAck, type GameSocket } from "@/lib/socket";
+import { api, ApiError } from "@/lib/api";
+import { pollEvery, registerRealtimeStopper } from "@/lib/realtime";
+
+const STATE_POLL_MS = 1500;
 
 interface GameStore {
   state: GameStateView | null;
@@ -18,78 +21,113 @@ interface GameStore {
   leave: () => void;
 }
 
-let wiredSocket: GameSocket | null = null;
+let stopPoll: (() => void) | null = null;
+let lastChatTs = 0;
 
-export const useGame = create<GameStore>((set, get) => ({
-  state: null,
-  chat: [],
-  error: null,
-  connected: false,
-  joinedId: null,
+export const useGame = create<GameStore>((set, get) => {
+  registerRealtimeStopper(() => {
+    stopPoll?.();
+    stopPoll = null;
+    lastChatTs = 0;
+    set({ state: null, chat: [], error: null, connected: false, joinedId: null });
+  });
 
-  join: async (gameId) => {
-    const socket = getGameSocket();
-    if (wiredSocket !== socket) {
-      wiredSocket = socket;
-      socket.on("connect", () => {
-        set({ connected: true });
-        // On a reconnect, silently re-join to restore the live state.
-        const { joinedId } = get();
-        if (joinedId) {
-          emitAck<GameStateView>(socket, "game:join", { gameId: joinedId }).then((res) => {
-            if (res.ok) set({ state: res.data, error: null });
-          });
+  async function pullChat(gameId: string) {
+    const msgs = await api.get<ChatMessage[]>(`/api/games/${gameId}/chat?after=${lastChatTs}`);
+    if (msgs.length > 0) {
+      lastChatTs = msgs[msgs.length - 1].ts;
+      set((s) => ({ chat: [...s.chat, ...msgs] }));
+    }
+  }
+
+  return {
+    state: null,
+    chat: [],
+    error: null,
+    connected: false,
+    joinedId: null,
+
+    join: async (gameId) => {
+      stopPoll?.();
+      lastChatTs = 0;
+      set({ state: null, chat: [], error: null, joinedId: gameId });
+
+      stopPoll = pollEvery(STATE_POLL_MS, async () => {
+        try {
+          const since = get().state?.version;
+          const qs = since !== undefined ? `?since=${since}` : "";
+          const res = await api.get<{ version: number; state?: GameStateView }>(
+            `/api/games/${gameId}/state${qs}`
+          );
+          if (res.state) set({ state: res.state, connected: true, error: null });
+          else set({ connected: true });
+          await pullChat(gameId);
+        } catch (err) {
+          if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
+            set({ error: err.message, connected: true });
+            stopPoll?.();
+            stopPoll = null;
+          } else {
+            set({ connected: false });
+          }
         }
       });
-      socket.on("disconnect", () => set({ connected: false }));
-      socket.on("game:state", (state) => set({ state }));
-      socket.on("game:chat", (msg) => set((s) => ({ chat: [...s.chat, msg] })));
-      socket.on("game:error", (error) => set({ error }));
-    }
+    },
 
-    const doJoin = async () => {
-      const res = await emitAck<GameStateView>(socket, "game:join", { gameId });
-      if (res.ok) set({ state: res.data, joinedId: gameId, error: null, connected: true });
-      else set({ error: res.error });
-    };
+    act: (action) => {
+      const { joinedId } = get();
+      if (!joinedId) return;
+      void api
+        .post<{ state: GameStateView | null }>(`/api/games/${joinedId}/action`, action)
+        .then((res) => {
+          // Apply the fresh view immediately — no waiting for the next poll.
+          if (res.state) set({ state: res.state });
+        })
+        .catch(() => {});
+    },
 
-    if (socket.connected) await doJoin();
-    else socket.once("connect", () => void doJoin());
-  },
+    undo: () => {
+      const { joinedId } = get();
+      if (!joinedId) return;
+      void api
+        .post<{ state: GameStateView | null }>(`/api/games/${joinedId}/undo`)
+        .then((res) => {
+          if (res.state) set({ state: res.state });
+        })
+        .catch(() => {});
+    },
 
-  act: (action) => {
-    const { joinedId } = get();
-    if (!joinedId) return;
-    getGameSocket().emit("game:action", { gameId: joinedId, action });
-  },
+    endGame: (winnerId) => {
+      const { joinedId } = get();
+      if (!joinedId) return;
+      void api.post(`/api/games/${joinedId}/end`, { winnerId }).catch(() => {});
+    },
 
-  undo: () => {
-    const { joinedId } = get();
-    if (joinedId) getGameSocket().emit("game:undo", { gameId: joinedId });
-  },
+    peek: async (count) => {
+      const { joinedId } = get();
+      if (!joinedId) return [];
+      try {
+        const res = await api.get<{ cards: GameCard[] }>(`/api/games/${joinedId}/peek?count=${count}`);
+        return res.cards;
+      } catch {
+        return [];
+      }
+    },
 
-  endGame: (winnerId) => {
-    const { joinedId } = get();
-    if (joinedId) getGameSocket().emit("game:end", { gameId: joinedId, winnerId });
-  },
+    sendChat: (text) => {
+      const { joinedId } = get();
+      if (!joinedId || !text.trim()) return;
+      void api
+        .post(`/api/games/${joinedId}/chat`, { text })
+        .then(() => pullChat(joinedId))
+        .catch(() => {});
+    },
 
-  peek: async (count) => {
-    const { joinedId } = get();
-    if (!joinedId) return [];
-    const res = await emitAck<GameCard[]>(getGameSocket(), "game:peek", {
-      gameId: joinedId,
-      count,
-    });
-    return res.ok ? res.data : [];
-  },
-
-  sendChat: (text) => {
-    const { joinedId } = get();
-    if (!joinedId || !text.trim()) return;
-    getGameSocket().emit("game:chat", { gameId: joinedId, text });
-  },
-
-  leave: () => {
-    set({ state: null, chat: [], joinedId: null });
-  },
-}));
+    leave: () => {
+      stopPoll?.();
+      stopPoll = null;
+      lastChatTs = 0;
+      set({ state: null, chat: [], joinedId: null });
+    },
+  };
+});

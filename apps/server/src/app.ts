@@ -6,7 +6,6 @@ import { config } from "./config.js";
 import { AUTH_COOKIE } from "./auth/jwt.js";
 import { prisma } from "./db.js";
 import { recordRequest, snapshot } from "./metrics.js";
-import { gameManager } from "./game/manager.js";
 import { registerRoutes } from "./routes/index.js";
 
 /**
@@ -73,8 +72,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Basic operational metrics.
   app.get("/api/metrics", async () => ({
     ...snapshot(),
-    activeGames: gameManager.activeCount(),
-    activeSockets: app.io?.engine?.clientsCount ?? 0,
+    activeGames: await prisma.game.count({ where: { status: "active" } }),
+    openRooms: await prisma.room.count(),
   }));
 
   await registerRoutes(app);

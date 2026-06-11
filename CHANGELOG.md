@@ -5,6 +5,14 @@ self-contained commit.
 
 ## Unreleased (post-v0.2.0)
 
+- **Vercel-only architecture**: replaced Socket.IO with HTTP polling. Lobby rooms
+  and game state now live in the database (new `Room` table; `Game.version` +
+  undo `history`); every action is load→apply→save with an optimistic version
+  guard, presence is a poll-driven `lastSeenAt` heartbeat, and the whole Fastify
+  API ships as one Vercel serverless function (`api/index.ts`). Same-origin web +
+  API → no CORS/cross-site cookies, and no Railway needed. Lobby/game/consolidated
+  tests rewritten against the REST API; Playwright e2e green on polling.
+
 - **Auth**: registration now requires a unique email; login accepts username OR
   email (nullable `User.email` migration keeps legacy accounts working).
 - **Game QoL**: hover-to-act shortcuts (hover a card and press C cast / T tap /

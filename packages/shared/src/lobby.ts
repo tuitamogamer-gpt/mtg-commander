@@ -19,7 +19,10 @@ export interface RoomPlayer {
   deckName: string | null;
   ready: boolean;
   isHost: boolean;
+  /** Derived from lastSeenAt at read time in the polling architecture. */
   connected: boolean;
+  /** Epoch ms of the player's last room poll (presence heartbeat). */
+  lastSeenAt?: number;
 }
 
 export interface Room {

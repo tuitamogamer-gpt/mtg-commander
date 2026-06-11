@@ -1,86 +1,85 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { Server as SocketServer } from "socket.io";
-import { io as ioClient, type Socket } from "socket.io-client";
-import type { AddressInfo } from "node:net";
-import { buildApp } from "../src/app.js";
-import { registerSockets } from "../src/sockets/index.js";
-import { registerUser } from "./helpers.js";
+import type { FastifyInstance } from "fastify";
+import { makeApp, registerUser } from "./helpers.js";
 
-describe("lobby sockets", () => {
-  let app: Awaited<ReturnType<typeof buildApp>>;
-  let io: SocketServer;
-  let url: string;
-  const clients: Socket[] = [];
-
+describe("lobby (REST polling)", () => {
+  let app: FastifyInstance;
   beforeAll(async () => {
-    app = await buildApp();
-    io = new SocketServer(app.server);
-    registerSockets(io);
-    await app.listen({ port: 0, host: "127.0.0.1" });
-    const addr = app.server.address() as AddressInfo;
-    url = `http://127.0.0.1:${addr.port}`;
+    app = await makeApp();
   });
-
   afterAll(async () => {
-    clients.forEach((c) => c.close());
-    await io.close();
     await app.close();
   });
 
-  function connect(cookie: string): Promise<Socket> {
-    const socket = ioClient(`${url}/lobby`, {
-      transports: ["websocket"],
-      extraHeaders: { Cookie: cookie },
-      forceNew: true,
-    });
-    clients.push(socket);
-    return new Promise((resolve, reject) => {
-      socket.on("connect", () => resolve(socket));
-      socket.on("connect_error", reject);
-    });
-  }
-  const ack = <T>(s: Socket, ev: string, p: unknown): Promise<T> =>
-    new Promise((r) => s.emit(ev, p, r));
-
-  it("rejects an unauthenticated socket", async () => {
-    const socket = ioClient(`${url}/lobby`, { transports: ["websocket"], forceNew: true });
-    clients.push(socket);
-    await expect(
-      new Promise((_res, rej) => {
-        socket.on("connect", () => rej(new Error("should not connect")));
-        socket.on("connect_error", (e) => rej(e));
-        setTimeout(() => rej(new Error("connect_error")), 2000);
-      })
-    ).rejects.toBeTruthy();
+  it("rejects unauthenticated access", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/lobby/rooms" });
+    expect(res.statusCode).toBe(401);
   });
 
-  it("runs a full create → join → ready → start flow", async () => {
+  it("runs a full create → join → deck → ready → start flow", async () => {
     const a = await registerUser(app);
     const b = await registerUser(app);
     const deckA = (await app.inject({ method: "POST", url: "/api/decks", headers: { cookie: a.cookie }, payload: { name: "A", cards: [] } })).json();
     const deckB = (await app.inject({ method: "POST", url: "/api/decks", headers: { cookie: b.cookie }, payload: { name: "B", cards: [] } })).json();
 
-    const sa = await connect(a.cookie);
-    const sb = await connect(b.cookie);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/lobby/rooms",
+      headers: { cookie: a.cookie },
+      payload: { name: "Test", maxPlayers: 2 },
+    });
+    expect(created.statusCode).toBe(200);
+    const roomId = created.json().id as string;
 
-    const created = await ack<{ ok: boolean; data: { id: string } }>(sa, "lobby:create_room", { name: "Test", maxPlayers: 2 });
-    expect(created.ok).toBe(true);
-    const roomId = created.data.id;
+    // Room shows up in the list.
+    const list = await app.inject({ method: "GET", url: "/api/lobby/rooms", headers: { cookie: b.cookie } });
+    expect(list.json().some((r: { id: string }) => r.id === roomId)).toBe(true);
 
-    const joined = await ack<{ ok: boolean; data: { players: unknown[] } }>(sb, "lobby:join_room", { roomId });
-    expect(joined.data.players).toHaveLength(2);
+    const joined = await app.inject({ method: "POST", url: `/api/lobby/rooms/${roomId}/join`, headers: { cookie: b.cookie } });
+    expect(joined.json().players).toHaveLength(2);
 
-    await ack(sa, "lobby:set_deck", { roomId, deckId: deckA.id });
-    await ack(sb, "lobby:set_deck", { roomId, deckId: deckB.id });
-    await ack(sa, "lobby:ready", { roomId, ready: true });
-    await ack(sb, "lobby:ready", { roomId, ready: true });
+    await app.inject({ method: "POST", url: `/api/lobby/rooms/${roomId}/deck`, headers: { cookie: a.cookie }, payload: { deckId: deckA.id } });
+    await app.inject({ method: "POST", url: `/api/lobby/rooms/${roomId}/deck`, headers: { cookie: b.cookie }, payload: { deckId: deckB.id } });
+    await app.inject({ method: "POST", url: `/api/lobby/rooms/${roomId}/ready`, headers: { cookie: a.cookie }, payload: { ready: true } });
+    await app.inject({ method: "POST", url: `/api/lobby/rooms/${roomId}/ready`, headers: { cookie: b.cookie }, payload: { ready: true } });
 
     // Non-host cannot start.
-    const badStart = await ack<{ ok: boolean }>(sb, "lobby:start_game", { roomId });
-    expect(badStart.ok).toBe(false);
+    const badStart = await app.inject({ method: "POST", url: `/api/lobby/rooms/${roomId}/start`, headers: { cookie: b.cookie } });
+    expect(badStart.statusCode).toBe(403);
 
-    const start = await ack<{ ok: boolean; data: { gameId: string } }>(sa, "lobby:start_game", { roomId });
-    expect(start.ok).toBe(true);
-    expect(start.data.gameId).toBeTruthy();
+    const start = await app.inject({ method: "POST", url: `/api/lobby/rooms/${roomId}/start`, headers: { cookie: a.cookie } });
+    expect(start.statusCode).toBe(200);
+    expect(start.json().gameId).toBeTruthy();
+
+    // The polled room now reports in_game + gameId (how clients navigate).
+    const polled = await app.inject({ method: "GET", url: `/api/lobby/rooms/${roomId}`, headers: { cookie: b.cookie } });
+    expect(polled.json().status).toBe("in_game");
+    expect(polled.json().gameId).toBe(start.json().gameId);
+  });
+
+  it("rejects setting a deck you don't own", async () => {
+    const a = await registerUser(app);
+    const b = await registerUser(app);
+    const deckB = (await app.inject({ method: "POST", url: "/api/decks", headers: { cookie: b.cookie }, payload: { name: "B", cards: [] } })).json();
+    const room = (await app.inject({ method: "POST", url: "/api/lobby/rooms", headers: { cookie: a.cookie }, payload: {} })).json();
+    const res = await app.inject({
+      method: "POST",
+      url: `/api/lobby/rooms/${room.id}/deck`,
+      headers: { cookie: a.cookie },
+      payload: { deckId: deckB.id },
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it("persists and returns room chat incrementally", async () => {
+    const a = await registerUser(app);
+    const room = (await app.inject({ method: "POST", url: "/api/lobby/rooms", headers: { cookie: a.cookie }, payload: {} })).json();
+    await app.inject({ method: "POST", url: `/api/lobby/rooms/${room.id}/chat`, headers: { cookie: a.cookie }, payload: { text: "hello pod" } });
+    const msgs = (await app.inject({ method: "GET", url: `/api/lobby/rooms/${room.id}/chat?after=0`, headers: { cookie: a.cookie } })).json();
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0].text).toBe("hello pod");
+    // Incremental: nothing newer than the last ts.
+    const none = (await app.inject({ method: "GET", url: `/api/lobby/rooms/${room.id}/chat?after=${msgs[0].ts}`, headers: { cookie: a.cookie } })).json();
+    expect(none).toHaveLength(0);
   });
 });

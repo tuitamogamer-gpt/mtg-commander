@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { AuthResponse, PublicUser } from "@mtgc/shared";
 import { api, ApiError } from "@/lib/api";
-import { resetSockets } from "@/lib/socket";
+import { resetRealtime } from "@/lib/realtime";
 
 interface AuthState {
   user: PublicUser | null;
@@ -29,19 +29,19 @@ export const useAuth = create<AuthState>((set) => ({
     }
   },
   login: async (identifier, password) => {
-    // Drop any sockets authed as a previous user before switching identity.
-    resetSockets();
+    // Stop any polling loops running as the previous identity.
+    resetRealtime();
     const { user } = await api.post<AuthResponse>("/api/auth/login", { identifier, password });
     set({ user });
   },
   register: async (username, email, password) => {
-    resetSockets();
+    resetRealtime();
     const { user } = await api.post<AuthResponse>("/api/auth/register", { username, email, password });
     set({ user });
   },
   logout: async () => {
     await api.post("/api/auth/logout");
-    resetSockets();
+    resetRealtime();
     set({ user: null });
   },
 }));

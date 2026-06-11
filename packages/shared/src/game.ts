@@ -125,8 +125,11 @@ export interface PlayerState {
   /** True once the player has kept their opening hand (mulligan phase done). */
   keptHand: boolean;
   /** Epoch ms when this player dropped, or null if connected. Drives the
-   * reconnect countdown shown to the table. */
+   * reconnect countdown shown to the table. In the polling architecture this is
+   * DERIVED from lastSeenAt at read time. */
   disconnectedAt: number | null;
+  /** Epoch ms of the player's last state poll (presence heartbeat). */
+  lastSeenAt?: number;
   /** When true, turn advancement skips this seat (e.g. abandoned game). */
   skipped: boolean;
   zones: PlayerZones;

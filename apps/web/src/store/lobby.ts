@@ -1,22 +1,25 @@
 import { create } from "zustand";
 import type { ChatMessage, Room, RoomSummary, RoomSettings } from "@mtgc/shared";
-import { getLobbySocket, emitAck, type LobbySocket } from "@/lib/socket";
+import { api } from "@/lib/api";
+import { pollEvery, registerRealtimeStopper } from "@/lib/realtime";
+
+const ROOMS_POLL_MS = 2500;
+const ROOM_POLL_MS = 1800;
 
 interface LobbyState {
   connected: boolean;
   rooms: RoomSummary[];
   room: Room | null;
   chat: ChatMessage[];
-  /** Set when start_game fires so the room page can navigate. */
+  /** Set when the polled room reports the game started, so the page can navigate. */
   startedGameId: string | null;
 
+  /** Start polling the open-rooms list (idempotent). */
   init: () => void;
+  /** Stop the open-rooms list poll (page unmount). */
+  stopRooms: () => void;
   refreshRooms: () => void;
-  createRoom: (
-    name: string,
-    maxPlayers: number,
-    settings?: Partial<RoomSettings>
-  ) => Promise<Room>;
+  createRoom: (name: string, maxPlayers: number, settings?: Partial<RoomSettings>) => Promise<Room>;
   joinRoom: (roomId: string) => Promise<Room>;
   leaveRoom: (roomId: string) => void;
   setDeck: (roomId: string, deckId: string) => Promise<void>;
@@ -26,100 +29,124 @@ interface LobbyState {
   clearStarted: () => void;
 }
 
-// Tracks which socket instance we've wired listeners to; re-wires after a
-// resetSockets() (login/logout) creates a fresh socket.
-let wiredSocket: LobbySocket | null = null;
+let stopRoomsPoll: (() => void) | null = null;
+let stopRoomPoll: (() => void) | null = null;
+let lastChatTs = 0;
 
-export const useLobby = create<LobbyState>((set, get) => ({
-  connected: false,
-  rooms: [],
-  room: null,
-  chat: [],
-  startedGameId: null,
+function stopAll() {
+  stopRoomsPoll?.();
+  stopRoomsPoll = null;
+  stopRoomPoll?.();
+  stopRoomPoll = null;
+  lastChatTs = 0;
+}
 
-  init: () => {
-    const socket = getLobbySocket();
-    if (wiredSocket === socket) {
-      if (socket.connected) {
-        set({ connected: true });
-        get().refreshRooms();
+export const useLobby = create<LobbyState>((set) => {
+  registerRealtimeStopper(() => {
+    stopAll();
+    set({ connected: false, rooms: [], room: null, chat: [], startedGameId: null });
+  });
+
+  /** Begin polling one room (state + chat); replaces any previous room poll. */
+  function watchRoom(roomId: string) {
+    stopRoomPoll?.();
+    lastChatTs = 0;
+    stopRoomPoll = pollEvery(ROOM_POLL_MS, async () => {
+      try {
+        const room = await api.get<Room>(`/api/lobby/rooms/${roomId}`);
+        set({ room, connected: true });
+        if (room.status === "in_game" && room.gameId) set({ startedGameId: room.gameId });
+        const msgs = await api.get<ChatMessage[]>(`/api/lobby/rooms/${roomId}/chat?after=${lastChatTs}`);
+        if (msgs.length > 0) {
+          lastChatTs = msgs[msgs.length - 1].ts;
+          set((s) => ({ chat: [...s.chat, ...msgs] }));
+        }
+      } catch {
+        set({ connected: false });
       }
-      return;
-    }
-    wiredSocket = socket;
-    // Fresh socket (new user) → clear any stale lobby state.
-    set({ rooms: [], room: null, chat: [], startedGameId: null });
-
-    socket.on("connect", () => {
-      set({ connected: true });
-      get().refreshRooms();
     });
-    socket.on("disconnect", () => set({ connected: false }));
-    socket.on("lobby:rooms", (rooms) => set({ rooms }));
-    socket.on("lobby:room_updated", (room) => {
-      // Only track the room we're currently viewing.
-      const current = get().room;
-      if (!current || current.id === room.id) set({ room });
-    });
-    socket.on("lobby:chat", (msg) => set((s) => ({ chat: [...s.chat, msg] })));
-    socket.on("lobby:game_started", ({ gameId }) => set({ startedGameId: gameId }));
+  }
 
-    if (socket.connected) {
-      set({ connected: true });
-      get().refreshRooms();
-    }
-  },
+  return {
+    connected: false,
+    rooms: [],
+    room: null,
+    chat: [],
+    startedGameId: null,
 
-  refreshRooms: () => {
-    getLobbySocket().emit("lobby:list_rooms", (rooms: RoomSummary[]) => set({ rooms }));
-  },
+    init: () => {
+      if (stopRoomsPoll) return;
+      stopRoomsPoll = pollEvery(ROOMS_POLL_MS, async () => {
+        try {
+          set({ rooms: await api.get<RoomSummary[]>("/api/lobby/rooms"), connected: true });
+        } catch {
+          set({ connected: false });
+        }
+      });
+    },
 
-  createRoom: async (name, maxPlayers, settings) => {
-    const res = await emitAck<Room>(getLobbySocket(), "lobby:create_room", {
-      name,
-      maxPlayers,
-      settings,
-    });
-    if (!res.ok) throw new Error(res.error);
-    set({ room: res.data, chat: [] });
-    return res.data;
-  },
+    stopRooms: () => {
+      stopRoomsPoll?.();
+      stopRoomsPoll = null;
+    },
 
-  joinRoom: async (roomId) => {
-    const res = await emitAck<Room>(getLobbySocket(), "lobby:join_room", { roomId });
-    if (!res.ok) throw new Error(res.error);
-    set({ room: res.data, chat: [] });
-    return res.data;
-  },
+    refreshRooms: () => {
+      void api
+        .get<RoomSummary[]>("/api/lobby/rooms")
+        .then((rooms) => set({ rooms, connected: true }))
+        .catch(() => set({ connected: false }));
+    },
 
-  leaveRoom: (roomId) => {
-    getLobbySocket().emit("lobby:leave_room", { roomId }, () => {});
-    set({ room: null, chat: [] });
-  },
+    createRoom: async (name, maxPlayers, settings) => {
+      const room = await api.post<Room>("/api/lobby/rooms", { name, maxPlayers, settings });
+      set({ room, chat: [], startedGameId: null });
+      watchRoom(room.id);
+      return room;
+    },
 
-  setDeck: async (roomId, deckId) => {
-    const res = await emitAck<Room>(getLobbySocket(), "lobby:set_deck", { roomId, deckId });
-    if (!res.ok) throw new Error(res.error);
-    set({ room: res.data });
-  },
+    joinRoom: async (roomId) => {
+      const room = await api.post<Room>(`/api/lobby/rooms/${roomId}/join`);
+      set({ room, chat: [], startedGameId: null });
+      watchRoom(roomId);
+      return room;
+    },
 
-  setReady: async (roomId, ready) => {
-    const res = await emitAck<Room>(getLobbySocket(), "lobby:ready", { roomId, ready });
-    if (!res.ok) throw new Error(res.error);
-    set({ room: res.data });
-  },
+    leaveRoom: (roomId) => {
+      stopRoomPoll?.();
+      stopRoomPoll = null;
+      void api.post(`/api/lobby/rooms/${roomId}/leave`).catch(() => {});
+      set({ room: null, chat: [], startedGameId: null });
+    },
 
-  startGame: async (roomId) => {
-    const res = await emitAck<{ gameId: string }>(getLobbySocket(), "lobby:start_game", {
-      roomId,
-    });
-    if (!res.ok) throw new Error(res.error);
-    return res.data.gameId;
-  },
+    setDeck: async (roomId, deckId) => {
+      const room = await api.post<Room>(`/api/lobby/rooms/${roomId}/deck`, { deckId });
+      set({ room });
+    },
 
-  sendChat: (roomId, text) => {
-    getLobbySocket().emit("lobby:chat", { roomId, text });
-  },
+    setReady: async (roomId, ready) => {
+      const room = await api.post<Room>(`/api/lobby/rooms/${roomId}/ready`, { ready });
+      set({ room });
+    },
 
-  clearStarted: () => set({ startedGameId: null }),
-}));
+    startGame: async (roomId) => {
+      const res = await api.post<{ gameId: string }>(`/api/lobby/rooms/${roomId}/start`);
+      return res.gameId;
+    },
+
+    sendChat: (roomId, text) => {
+      void api
+        .post(`/api/lobby/rooms/${roomId}/chat`, { text })
+        .then(async () => {
+          // Pull immediately so the sender sees their message without a poll wait.
+          const msgs = await api.get<ChatMessage[]>(`/api/lobby/rooms/${roomId}/chat?after=${lastChatTs}`);
+          if (msgs.length > 0) {
+            lastChatTs = msgs[msgs.length - 1].ts;
+            set((s) => ({ chat: [...s.chat, ...msgs] }));
+          }
+        })
+        .catch(() => {});
+    },
+
+    clearStarted: () => set({ startedGameId: null }),
+  };
+});
