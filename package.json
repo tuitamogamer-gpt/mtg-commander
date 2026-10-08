@@ -4,7 +4,7 @@
   "private": true,
   "description": "Full-stack web client for playing the Magic: The Gathering Commander format online (2-4 players, honor-system rules).",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "packageManager": "pnpm@11.5.1",
   "scripts": {

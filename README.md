@@ -23,7 +23,7 @@ short in-app walkthrough on first login.
 | ---------- | ----------------------------------------------------------------- |
 | Monorepo   | pnpm workspaces (`apps/web`, `apps/server`, `packages/shared`)    |
 | Frontend   | React 18 · Vite 6 · TypeScript · Tailwind v4 · React Router · Zustand · dnd-kit |
-| Backend    | Node 20+ · Fastify 5 · Prisma · SQLite (dev) / Postgres (prod)    |
+| Backend    | Node 22.13+ · Fastify 5 · Prisma · SQLite (dev) / Postgres (prod) |
 | Auth       | JWT in an httpOnly cookie · bcrypt                                |
 | Realtime   | HTTP polling (versioned game state, DB-backed rooms) — serverless-friendly, runs fully on Vercel |
 | Card data  | Scryfall (cards) · Moxfield (deck import) · MTGJSON (precons)      |
@@ -36,7 +36,7 @@ protocol is typed end-to-end.
 
 ## Prerequisites
 
-- **Node 20+** (developed on Node 24)
+- **Node 22.13+** (pnpm 11.5.1 requires it; developed on Node 24)
 - **pnpm** — `npm install -g pnpm` (or `corepack enable pnpm`)
 - **curl** on `PATH` — bundled with Windows 10+/macOS/Linux. The server shells out
   to it for Moxfield/MTGJSON, whose Cloudflare blocks Node's `fetch` by TLS

@@ -12,7 +12,7 @@ pnpm db:seed:precons     # ~181 Commander precons from MTGJSON (~1 min)
 pnpm dev                 # server :4000 + web :5173
 ```
 
-Requires Node 20+, pnpm, and `curl` on PATH (used for Cloudflare-fronted
+Requires Node 22.13+ (pnpm 11.5.1), pnpm, and `curl` on PATH (used for Cloudflare-fronted
 upstreams). See [README](README.md) for details and [ARCHITECTURE](ARCHITECTURE.md)
 for the layout.
 
